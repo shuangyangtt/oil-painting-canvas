@@ -19,6 +19,7 @@ sealed interface Screen {
     data class Player(val rowKey: String, val videos: List<Video>, val index: Int) : Screen
     data object Parent : Screen
     data object Offline : Screen
+    data object About : Screen
 }
 
 const val OFFLINE_KEY = "offline"
@@ -121,7 +122,7 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
     fun onMenuShort() {
         when (screen) {
             is Screen.Home, is Screen.Player, Screen.Offline -> currentVideo?.let { toggleFavorite(it) }
-            Screen.Parent -> Unit
+            Screen.Parent, Screen.About -> Unit
         }
     }
 

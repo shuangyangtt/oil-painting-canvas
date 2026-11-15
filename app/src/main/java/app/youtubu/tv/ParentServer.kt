@@ -173,6 +173,7 @@ class ParentServer(private val context: Context, private val state: AppState) {
             .put("precacheStatus", state.precacher.status)
             .put("cacheLimit", Media.cacheLimit)
             .put("log", JSONArray(Media.logLines()))
+            .put("about", aboutJson(appVersion(context)))
     }
 
     /** Each line is a channel link, @handle or channel id; a single line of plain words is a search. */

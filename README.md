@@ -23,3 +23,6 @@ Kotlin + Jetpack Compose（电视遥控器焦点）、Media3 ExoPlayer（Invidio
 ./install.sh 192.168.x.x           # 通过 WiFi 装到投影仪
 ```
 需要 ~/Android/Sdk（local.properties 里的 sdk.dir）。
+
+## 关于
+家长设置里的「关于 · 免责声明」（手机管理页底部也有）：软件来源（电脑版基于 FreeTube；电视版视频经 Invidious；Media3、Compose、OkHttp、Coil、ZXing）、视频版权归 YouTube 原作者、仅限个人非商业使用、隐私、免责声明。内容在 About.kt 的 ABOUT_SECTIONS。

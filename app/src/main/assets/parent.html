@@ -92,6 +92,9 @@
     <div class="bar"><button class="soft" id="clearCacheBtn">清空缓存</button></div>
   </div>
 
+  <h2>关于 · 免责声明 <small id="aboutVersion" style="color:var(--dim);font-weight:400"></small></h2>
+  <div class="card" id="about"></div>
+
   <h2>播放记录 <small style="color:var(--dim);font-weight:400">（出问题时把这里截图发给 Claude）</small></h2>
   <div class="card"><pre id="log" style="margin:0;white-space:pre-wrap;font-size:13px;max-height:420px;overflow:auto"></pre></div>
 </main>
@@ -132,6 +135,13 @@ async function load() {
   el('cacheInfo').textContent = '已用 ' + gb(s.cacheUsed) + '，最多 ' + gb(s.cacheLimit) + '；离线模式里有 ' + s.offlineCount + ' 首';
   el('autoPrecache').checked = s.autoPrecache;
   el('precacheStatus').textContent = '现在：' + s.precacheStatus;
+  el('aboutVersion').textContent = '版本 ' + s.about.version;
+  if (!el('about').dataset.done) {
+    el('about').dataset.done = '1';
+    el('about').innerHTML = s.about.sections.map((sec) =>
+      '<h3 style="margin:14px 0 4px;font-size:16px">' + esc(sec.title) + '</h3>' +
+      sec.lines.map((l) => '<p style="margin:4px 0;color:var(--dim)">' + esc(l) + '</p>').join('')).join('');
+  }
   el('log').textContent = s.log.length ? s.log.join('\n') : '还没有播放记录';
   if (document.activeElement !== el('instance')) el('instance').value = s.instance;
 }

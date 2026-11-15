@@ -88,20 +88,19 @@ fun ParentScreen(state: AppState) {
     ) {
         Column(Modifier.width(300.dp)) {
             T("家长设置", size = 30.sp, weight = FontWeight.Bold)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(10.dp))
             if (url != null) {
                 Box(
                     Modifier
-                        .size(220.dp)
+                        .size(150.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Color.White)
-                        .padding(12.dp),
+                        .padding(10.dp),
                 ) { QrCode(url) }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(8.dp))
                 T("用手机扫码，或在电脑浏览器打开：", size = 15.sp, color = C.dim)
                 T(url, size = 22.sp, color = C.yellow, weight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                T("可以粘贴频道链接、搜索频道、删除和排序。手机要和投影仪连同一个 WiFi，这个页面开着的时候才能用。", size = 14.sp, color = C.faint)
+                T("手机和投影仪要连同一个 WiFi", size = 13.sp, color = C.faint)
             } else {
                 T("投影仪还没有连上网络", size = 18.sp, color = C.pink)
             }
@@ -118,6 +117,10 @@ fun ParentScreen(state: AppState) {
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TvButton("返回", Modifier.focusRequester(firstFocus)) { state.screen = Screen.Home }
+                TvButton("关于 · 免责声明") { state.screen = Screen.About }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TvButton("重新加载频道") {
                     state.refreshAll()
                     state.showToast("正在重新加载所有频道")
