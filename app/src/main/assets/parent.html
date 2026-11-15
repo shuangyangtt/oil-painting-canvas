@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>油图布儿歌 · 家长设置</title>
+<style>
+  :root {
+    --bg: #f6f5fb; --card: #fff; --text: #1d1b2e; --dim: #6b6880; --line: #e6e3f0;
+    --accent: #4a3fb8; --accent-soft: #ece9ff; --danger: #c8344f; --ok: #1f8a4c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15132a; --card: #221f3d; --text: #f1effa; --dim: #a7a3c2; --line: #353159;
+      --accent: #a99cff; --accent-soft: #2f2a5c; --danger: #ff7d93; --ok: #6fd69a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Noto Sans CJK SC", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 24px; margin: 4px 0 2px; }
+  h2 { font-size: 18px; margin: 28px 0 10px; }
+  p.sub { color: var(--dim); margin: 0 0 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  textarea, input[type=text] { width: 100%; font: inherit; color: inherit; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  textarea { min-height: 76px; resize: vertical; }
+  button { font: inherit; border: 0; border-radius: 10px; padding: 9px 16px; cursor: pointer;
+    background: var(--accent); color: #fff; font-weight: 600; }
+  button.soft { background: var(--accent-soft); color: var(--accent); }
+  button.danger { background: transparent; color: var(--danger); padding: 9px 10px; }
+  button.icon { background: var(--accent-soft); color: var(--accent); padding: 6px 10px; min-width: 38px; }
+  button:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; }
+  .row img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--line); flex: none; }
+  .row img.thumb { width: 80px; height: 45px; border-radius: 8px; }
+  .row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .name small { display: block; color: var(--dim); }
+  .actions { display: flex; gap: 6px; flex: none; }
+  .bar { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  #msg { margin-top: 10px; min-height: 1.5em; }
+  #msg.ok { color: var(--ok); } #msg.err { color: var(--danger); }
+  select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  .empty { color: var(--dim); padding: 8px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>油图布儿歌 · 家长设置</h1>
+  <p class="sub">在这里管理电视上的儿歌频道。改动会马上出现在电视上。</p>
+
+  <h2>添加频道</h2>
+  <div class="card">
+    <textarea id="addText" placeholder="粘贴 YouTube 频道链接，例如 https://www.youtube.com/@SuperSimpleSongs&#10;可以一次粘贴多个，每行一个；也可以直接输入频道名字搜索"></textarea>
+    <div class="bar"><button id="addBtn">添加</button></div>
+    <div id="msg"></div>
+    <div id="results"></div>
+  </div>
+
+  <h2>电视上的频道 <small id="chCount" style="color:var(--dim);font-weight:400"></small></h2>
+  <div class="card" id="channels"></div>
+  <div class="bar"><button class="soft" id="resetBtn">恢复默认频道</button></div>
+
+  <h2>最喜欢</h2>
+  <div class="card" id="favorites"></div>
+
+  <h2>高级</h2>
+  <div class="card">
+    <label>最高清晰度
+      <select id="quality">
+        <option value="480">480p（网速慢时）</option>
+        <option value="720">720p</option>
+        <option value="1080">1080p</option>
+      </select>
+    </label>
+    <div style="margin-top:14px">Invidious 服务器</div>
+    <div class="bar" style="margin-top:6px">
+      <input type="text" id="instance" style="flex:1;min-width:200px">
+      <button class="soft" id="instanceBtn">保存</button>
+    </div>
+    <div class="bar"><button class="soft" id="refreshBtn">重新加载所有频道</button></div>
+  </div>
+</main>
+<script>
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+async function api(path, data) {
+  const res = await fetch(path, { method: 'POST', body: JSON.stringify(data || {}) });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+function msg(text, kind) {
+  el('msg').textContent = text;
+  el('msg').className = kind || '';
+}
+
+async function load() {
+  const s = await api('/api/state');
+  el('chCount').textContent = s.channels.length + ' 个';
+  el('channels').innerHTML = s.channels.length ? s.channels.map((c, i) =>
+    '<div class="row"><img src="' + esc(c.avatar) + '" alt="">' +
+    '<div class="name">' + esc(c.name) + '<small>' + (c.count ? c.count + ' 首' : '加载中…') + '</small></div>' +
+    '<div class="actions">' +
+    '<button class="icon" ' + (i === 0 ? 'disabled' : '') + ' onclick="move(\'' + c.id + '\',-1)" title="上移">↑</button>' +
+    '<button class="icon" ' + (i === s.channels.length - 1 ? 'disabled' : '') + ' onclick="move(\'' + c.id + '\',1)" title="下移">↓</button>' +
+    '<button class="danger" onclick="removeCh(\'' + c.id + '\',\'' + esc(c.name).replace(/'/g, '') + '\')">删除</button>' +
+    '</div></div>').join('') : '<div class="empty">还没有频道</div>';
+  el('favorites').innerHTML = s.favorites.length ? s.favorites.map((v) =>
+    '<div class="row"><img class="thumb" src="https://i.ytimg.com/vi/' + esc(v.videoId) + '/mqdefault.jpg" alt="">' +
+    '<div class="name">' + esc(v.title) + '<small>' + esc(v.author) + '</small></div>' +
+    '<div class="actions"><button class="danger" onclick="favRemove(\'' + v.videoId + '\')">拿走</button></div></div>').join('')
+    : '<div class="empty">孩子在电视上按 ≡ 键就能把歌加进来</div>';
+  el('quality').value = String(s.maxHeight);
+  if (document.activeElement !== el('instance')) el('instance').value = s.instance;
+}
+
+async function add() {
+  const text = el('addText').value.trim();
+  if (!text) return;
+  el('addBtn').disabled = true;
+  el('results').innerHTML = '';
+  msg('正在查找…');
+  try {
+    const r = await api('/api/add', { text });
+    if (r.results) {
+      msg(r.results.length ? '找到这些频道，点「添加」：' : '没有找到，换个名字或者粘贴频道链接试试', r.results.length ? '' : 'err');
+      el('results').innerHTML = r.results.map((c) =>
+        '<div class="row"><img src="' + esc(c.avatar) + '" alt=""><div class="name">' + esc(c.name) + '</div>' +
+        '<div class="actions"><button onclick="addId(\'' + c.id + '\', this)">添加</button></div></div>').join('');
+    } else {
+      const parts = [];
+      if (r.added.length) parts.push('已添加：' + r.added.join('、'));
+      if (r.failed.length) parts.push('没找到：' + r.failed.join('、'));
+      msg(parts.join('；'), r.failed.length ? 'err' : 'ok');
+      if (!r.failed.length) el('addText').value = '';
+    }
+  } catch (e) {
+    msg('出错了：' + e.message, 'err');
+  }
+  el('addBtn').disabled = false;
+  load();
+}
+
+async function addId(id, btn) {
+  btn.disabled = true;
+  try {
+    const r = await api('/api/addId', { id });
+    msg('已添加：' + r.added.join('、'), 'ok');
+    btn.textContent = '已添加';
+  } catch (e) {
+    msg('出错了：' + e.message, 'err');
+    btn.disabled = false;
+  }
+  load();
+}
+
+async function move(id, delta) { await api('/api/move', { id, delta }); load(); }
+async function removeCh(id, name) {
+  if (!confirm('从电视上删除「' + name + '」？')) return;
+  await api('/api/remove', { id }); load();
+}
+async function favRemove(id) { await api('/api/favRemove', { id }); load(); }
+
+el('addBtn').onclick = add;
+el('addText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) add(); });
+el('quality').onchange = async () => { await api('/api/quality', { height: Number(el('quality').value) }); msg('清晰度已保存，下一首歌开始生效', 'ok'); };
+el('instanceBtn').onclick = async () => { await api('/api/instance', { url: el('instance').value }); msg('服务器已保存，正在重新加载频道', 'ok'); load(); };
+el('refreshBtn').onclick = async () => { await api('/api/refresh'); msg('正在重新加载所有频道', 'ok'); setTimeout(load, 3000); };
+el('resetBtn').onclick = async () => {
+  if (!confirm('把频道恢复成默认的 18 个英文和德文儿歌频道？（最喜欢不受影响）')) return;
+  await api('/api/reset'); load();
+};
+load();
+setInterval(load, 8000);
+</script>
+</body>
+</html>
