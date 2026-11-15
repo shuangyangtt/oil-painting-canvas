@@ -1,6 +1,6 @@
-<p align="center"><img src="docs/banner.png" width="360" alt="油图布"></p>
+<p align="center"><img src="docs/banner.png" width="360" alt="油图布儿歌"></p>
 
-# 油图布 · Oil Painting Canvas
+# 油图布儿歌 · Oil Painting Canvas
 
 给两岁孩子用**投影仪 / 安卓电视遥控器**自己选儿歌的播放器。一排排大封面，不认字也能选；只显示家长挑好的英文和德文儿歌频道，没有广告、搜索框、评论和推荐。
 
@@ -65,6 +65,7 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 
 | 版本 | 内容 |
 |---|---|
+| [v1.4](../../releases/tag/v1.4) | 许可证说明和名称统一（GPL-3.0、英文名 Oil Painting Canvas） |
 | [v1.3](../../releases/tag/v1.3) | 「关于 · 免责声明」页面 |
 | [v1.2](../../releases/tag/v1.2) | 自动批量缓存和离线模式 |
 | [v1.1](../../releases/tag/v1.1) | 修复画面卡住、加 4 GB 视频缓存 |
@@ -76,7 +77,7 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 
 <p align="center"><img src="docs/about.png" width="560" alt="关于页面"></p>
 
-- **这是什么**：油图布是为自己家孩子自制的儿歌播放器。它不是 YouTube 或 Google 的产品，和 YouTube、Google 以及软件里出现的各个儿歌频道没有任何关系，也没有得到它们的授权或认可。
+- **这是什么**：油图布儿歌是为自己家孩子自制的儿歌播放器。它不是 YouTube 或 Google 的产品，和 YouTube、Google 以及软件里出现的各个儿歌频道没有任何关系，也没有得到它们的授权或认可。
 - **软件来源**：电视版的界面和用法沿用电脑版「油图布」，电脑版基于开源项目 [FreeTube](https://freetubeapp.io)（AGPL-3.0）。电视版是另外编写的程序，不包含 FreeTube 的代码；去广告和高清视频依靠开源项目 [Invidious](https://invidious.io)（AGPL-3.0），视频列表和视频地址都经由 Invidious 服务器获取。其他开源软件（均为 Apache-2.0）：AndroidX Media3、Jetpack Compose、OkHttp、Coil、ZXing。感谢以上项目的作者和维护者。
 - **视频来源与版权**：所有视频、封面、频道名称和头像都来自 YouTube，版权归原作者和频道所有。本软件不保存、不修改、也不重新发布任何视频内容；离线缓存只临时保存在本机上，供自己家观看。喜欢某个频道，请到 YouTube 上关注并支持原作者。
 - **视频内容仅供个人观看**：软件本身按 GPL-3.0 开源（见下文「许可证」）；但通过它看到的视频属于各自的版权人，只能个人和家庭观看，不得用于商业用途，也不得录制、下载后再传播。绕开广告和不登录播放的方式可能不符合 YouTube 的服务条款，是否使用、如何使用，由使用者自行判断并承担责任。
@@ -85,7 +86,7 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 
 ## 许可证 · License
 
-油图布（Oil Painting Canvas）是自由软件，按 [GNU 通用公共许可证第 3 版（GPL-3.0）](LICENSE) 发布：你可以自由地使用、学习、修改和再分发它；再分发（包括修改后的版本）时必须同样按 GPL-3.0 开源，并附上源码。本软件不提供任何担保。
+油图布儿歌（Oil Painting Canvas）是自由软件，按 [GNU 通用公共许可证第 3 版（GPL-3.0）](LICENSE) 发布：你可以自由地使用、学习、修改和再分发它；再分发（包括修改后的版本）时必须同样按 GPL-3.0 开源，并附上源码。本软件不提供任何担保。
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 3. It is distributed WITHOUT ANY WARRANTY. See [LICENSE](LICENSE).
 

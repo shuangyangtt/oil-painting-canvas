@@ -45,7 +45,7 @@ val ABOUT_SECTIONS = listOf(
     AboutSection(
         "这是什么",
         listOf(
-            "油图布儿歌是为家里孩子自制的儿歌播放器，只给自己家使用。",
+            "油图布儿歌（英文名 Oil Painting Canvas）是为家里孩子自制的儿歌播放器，用投影仪或电视的遥控器就能自己选歌。",
             "它不是 YouTube 或 Google 的产品，和 YouTube、Google 以及软件里出现的各个儿歌频道没有任何关系，也没有得到它们的授权或认可。",
         ),
     ),
@@ -67,9 +67,9 @@ val ABOUT_SECTIONS = listOf(
         ),
     ),
     AboutSection(
-        "仅限个人、非商业使用",
+        "视频内容仅供个人观看",
         listOf(
-            "本软件仅供个人和家庭学习、自用，不得用于任何商业用途，不得出售、出租或公开传播本软件和其中的内容。",
+            "通过本软件看到的视频属于各自的版权人，只能个人和家庭观看，不得用于商业用途，也不得录制、下载后再传播。",
             "绕开广告和不登录播放的方式可能不符合 YouTube 的服务条款。是否使用、如何使用，由使用者自行判断并承担责任。",
         ),
     ),
@@ -86,6 +86,14 @@ val ABOUT_SECTIONS = listOf(
         listOf(
             "本软件按现状提供，不提供任何形式的保证。YouTube 或 Invidious 的变化可能让部分或全部功能随时失效。",
             "频道是家长自己挑选的，视频内容由各频道负责。请家长先看过再给孩子看，并陪伴孩子使用。",
+        ),
+    ),
+    AboutSection(
+        "许可证",
+        listOf(
+            "油图布儿歌是自由软件，按 GNU 通用公共许可证第 3 版（GPL-3.0）发布：可以自由地使用、学习、修改和再分发；再分发（包括修改后的版本）时必须同样按 GPL-3.0 开源并附上源码。",
+            "许可证只适用于本软件自己的源代码，不包括软件里显示的视频、封面和频道名称。",
+            "源代码：github.com/shuangyangtt/oil-painting-canvas",
         ),
     ),
 )
@@ -136,7 +144,7 @@ fun AboutScreen(state: AppState) {
                 .padding(horizontal = 120.dp, vertical = 40.dp),
         ) {
             Row(verticalAlignment = Alignment.Bottom) {
-                T("关于油图布儿歌", size = 30.sp, weight = FontWeight.Bold)
+                T("关于油图布儿歌 · Oil Painting Canvas", size = 30.sp, weight = FontWeight.Bold)
                 Spacer(Modifier.width(16.dp))
                 T("版本 ${appVersion(context)}", size = 16.sp, color = C.dim)
             }
