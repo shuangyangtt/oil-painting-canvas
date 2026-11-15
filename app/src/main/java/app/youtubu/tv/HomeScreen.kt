@@ -130,7 +130,7 @@ fun HomeScreen(state: AppState) {
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 300.dp),
         ) {
-            item(key = "header") { Header() }
+            item(key = "header") { Header(state) }
             item(key = FAVORITES_KEY) {
                 FavoritesRow(state, ::requester, ::play, ::onCardFocused)
             }
@@ -152,7 +152,7 @@ fun HomeScreen(state: AppState) {
 }
 
 @Composable
-private fun Header() {
+private fun Header(state: AppState) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -168,8 +168,38 @@ private fun Header() {
         ) { T("▶", size = 16.sp, color = C.bg) }
         Spacer(Modifier.width(12.dp))
         T("油图布儿歌", size = 22.sp, weight = FontWeight.Bold)
+        Spacer(Modifier.width(32.dp))
+        OfflineButton(state.offlineVideos.size) { state.screen = Screen.Offline }
         Spacer(Modifier.weight(1f))
         T("按 ≡ 加入最喜欢 · 长按 ≡ 家长设置", size = 13.sp, color = C.faint)
+    }
+}
+
+/** Big button for the offline page: songs stored on the projector, for when the internet is slow. */
+@Composable
+private fun OfflineButton(count: Int, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.1f else 1f, label = "scale")
+    val shape = RoundedCornerShape(50)
+    Row(
+        Modifier
+            .onFocusChanged { focused = it.isFocused }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .background(if (focused) C.yellow else C.card)
+            .border(3.dp, if (focused) C.yellow else C.faint.copy(alpha = 0.3f), shape)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        T("⬇", size = 18.sp, color = if (focused) C.bg else C.yellow, weight = FontWeight.Bold)
+        Spacer(Modifier.width(10.dp))
+        T("离线模式", size = 18.sp, color = if (focused) C.bg else C.text, weight = FontWeight.Bold)
+        Spacer(Modifier.width(10.dp))
+        T("$count 首", size = 15.sp, color = if (focused) C.bg else C.dim)
     }
 }
 
@@ -273,7 +303,7 @@ private fun Heart() {
 }
 
 @Composable
-private fun VideoCard(video: Video, modifier: Modifier, onFocused: () -> Unit, onClick: () -> Unit) {
+internal fun VideoCard(video: Video, modifier: Modifier, onFocused: () -> Unit, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.12f else 1f, label = "scale")
     val shape = RoundedCornerShape(18.dp)

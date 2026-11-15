@@ -113,13 +113,19 @@ fun ParentScreen(state: AppState) {
                     delay(3000)
                 }
             }
-            T("视频缓存：已用 ${formatSize(cacheUsed)} / ${formatSize(Media.cacheLimit)}", size = 15.sp, color = C.dim)
+            T("视频缓存：已用 ${formatSize(cacheUsed)} / ${formatSize(Media.cacheLimit)} · 离线 ${state.offlineVideos.size} 首", size = 15.sp, color = C.dim)
+            T("自动缓存：${state.precacher.status}", size = 13.sp, color = C.faint, maxLines = 2)
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TvButton("返回", Modifier.focusRequester(firstFocus)) { state.screen = Screen.Home }
                 TvButton("重新加载频道") {
                     state.refreshAll()
                     state.showToast("正在重新加载所有频道")
+                }
+                var auto by remember { mutableStateOf(state.store.autoPrecache) }
+                TvButton(if (auto) "自动缓存：开" else "自动缓存：关") {
+                    auto = !auto
+                    state.store.autoPrecache = auto
                 }
             }
         }

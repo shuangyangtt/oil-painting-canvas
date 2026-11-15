@@ -51,6 +51,14 @@ val DEFAULT_CHANNELS = listOf(
 const val DEFAULT_INSTANCE = "https://yt.chocolatemoo53.com"
 
 object Net {
+    /** Whether the projector has a network connection at all. */
+    fun online(context: android.content.Context): Boolean = try {
+        val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        cm.activeNetwork != null
+    } catch (_: Exception) {
+        true
+    }
+
     // the Invidious instance rejects requests without a browser User-Agent (403)
     const val USER_AGENT =
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36"
@@ -164,6 +172,10 @@ class Store(context: Context) {
     var instance: String
         get() = prefs.getString("instance", null) ?: DEFAULT_INSTANCE
         set(value) = prefs.edit().putString("instance", value.trim().trimEnd('/')).apply()
+
+    var autoPrecache: Boolean
+        get() = prefs.getBoolean("autoPrecache", true)
+        set(value) = prefs.edit().putBoolean("autoPrecache", value).apply()
 
     var maxHeight: Int
         get() = prefs.getInt("maxHeight", 1080)

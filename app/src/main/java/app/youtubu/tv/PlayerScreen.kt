@@ -141,7 +141,13 @@ fun PlayerScreen(state: AppState, screen: Screen.Player) {
         loadJob[0]?.cancel()
         loadJob[0] = scope.launch {
             val dataSource = Media.dataSource(context)
-            val source = if (newLevel < 2) {
+            // a song stored for offline use plays from the projector, without asking the internet at all
+            val offline = if (newLevel == 0) Offline.manifestIfComplete(context, video.id) else null
+            if (offline != null) Media.log("从投影仪上的离线缓存播放")
+            val source = if (offline != null) {
+                DashMediaSource.Factory(DefaultDashChunkSource.Factory(dataSource), DefaultDataSource.Factory(context))
+                    .createMediaSource(MediaItem.Builder().setUri(offline).setMimeType(MimeTypes.APPLICATION_MPD).build())
+            } else if (newLevel < 2) {
                 val manifest = try {
                     Media.manifest(context, state.api, video.id, fresh = newLevel == 1)
                 } catch (e: Exception) {
@@ -167,10 +173,11 @@ fun PlayerScreen(state: AppState, screen: Screen.Player) {
 
     LaunchedEffect(index, playCount) {
         state.currentVideo = video
-        state.lastFocus = screen.rowKey to index
+        if (screen.rowKey == OFFLINE_KEY) state.lastOfflineIndex = index else state.lastFocus = screen.rowKey to index
         position = 0
         duration = 0
         Media.log("播放「${short(video.title)}」")
+        state.precacher.pause()
         load(0, 0)
     }
 
@@ -189,7 +196,19 @@ fun PlayerScreen(state: AppState, screen: Screen.Player) {
                 // carry on where it stopped instead of starting the song again
                 val at = player.currentPosition
                 Media.log("出错（${error.errorCodeName}）：${error.cause?.message ?: error.message}")
-                if (level < 2) {
+                if (!Net.online(context)) {
+                    // no internet: go on with the next song stored on the projector, if there is one
+                    val stored = (1..videos.size).map { (index + it).mod(videos.size) }
+                        .firstOrNull { Offline.isComplete(context, videos[it].id) }
+                    if (stored != null && stored != index) {
+                        state.showToast("没有网络，放一首存好的歌")
+                        index = stored
+                        playCount++
+                    } else {
+                        state.showToast("没有网络。去「离线模式」看存好的歌吧")
+                        state.screen = Screen.Home
+                    }
+                } else if (level < 2) {
                     load(level + 1, at)
                 } else {
                     state.showToast("这首歌现在放不了，换下一首")
@@ -270,7 +289,7 @@ fun PlayerScreen(state: AppState, screen: Screen.Player) {
         }
     }
 
-    BackHandler { state.screen = Screen.Home }
+    BackHandler { state.screen = if (screen.rowKey == OFFLINE_KEY) Screen.Offline else Screen.Home }
 
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }

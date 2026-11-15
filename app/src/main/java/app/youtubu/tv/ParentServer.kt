@@ -142,7 +142,11 @@ class ParentServer(private val context: Context, private val state: AppState) {
                 "/api/quality" -> onMain { state.store.maxHeight = json.getInt("height"); ok() }
                 "/api/refresh" -> onMain { state.refreshAll(); ok() }
                 "/api/reset" -> onMain { state.resetChannels(); ok() }
-                "/api/clearCache" -> withContext(Dispatchers.IO) { Media.clearCache(context); ok() }
+                "/api/clearCache" -> {
+                    withContext(Dispatchers.IO) { Media.clearCache(context) }
+                    onMain { state.offlineVideos = emptyList(); ok() }
+                }
+                "/api/autoPrecache" -> onMain { state.store.autoPrecache = json.getBoolean("on"); ok() }
                 else -> JSONObject().put("error", "没有这个功能")
             }
         }
@@ -164,6 +168,9 @@ class ParentServer(private val context: Context, private val state: AppState) {
             .put("instance", state.store.instance)
             .put("maxHeight", state.store.maxHeight)
             .put("cacheUsed", Media.cacheUsed())
+            .put("offlineCount", state.offlineVideos.size)
+            .put("autoPrecache", state.store.autoPrecache)
+            .put("precacheStatus", state.precacher.status)
             .put("cacheLimit", Media.cacheLimit)
             .put("log", JSONArray(Media.logLines()))
     }

@@ -11,6 +11,9 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private lateinit var state: AppState
@@ -32,6 +35,12 @@ class MainActivity : ComponentActivity() {
         Thread { Media.cache(applicationContext) }.start()
         state = AppState(Store(applicationContext), lifecycleScope)
         state.loadAll()
+        state.precacher = Precacher(applicationContext, state, lifecycleScope)
+        state.precacher.start()
+        lifecycleScope.launch(Dispatchers.IO) {
+            val list = Offline.videos(applicationContext)
+            withContext(Dispatchers.Main) { state.offlineVideos = list }
+        }
         setContent { App(state) }
     }
 

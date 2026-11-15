@@ -84,7 +84,11 @@
   <h2>视频缓存</h2>
   <div class="card">
     <div id="cacheInfo">…</div>
-    <p class="sub" style="margin-top:6px">看过的视频会存在投影仪上，再看时直接从投影仪读取，不用等网络。存满后自动删掉最久没看的。</p>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px">
+      <input type="checkbox" id="autoPrecache"> 自动批量缓存推荐的歌（投影仪开着、不放视频的时候下载，存到 4GB）
+    </label>
+    <div id="precacheStatus" class="sub" style="margin-top:4px"></div>
+    <p class="sub" style="margin-top:6px">看过的视频会存在投影仪上，再看时直接从投影仪读取，不用等网络。存满后自动删掉最久没看的。批量缓存好的歌会出现在电视上的「离线模式」里，没有网络也能看。</p>
     <div class="bar"><button class="soft" id="clearCacheBtn">清空缓存</button></div>
   </div>
 
@@ -125,7 +129,9 @@ async function load() {
     : '<div class="empty">孩子在电视上按 ≡ 键就能把歌加进来</div>';
   el('quality').value = String(s.maxHeight);
   const gb = (n) => n >= 1073741824 ? (n / 1073741824).toFixed(1) + ' GB' : Math.round(n / 1048576) + ' MB';
-  el('cacheInfo').textContent = '已用 ' + gb(s.cacheUsed) + '，最多 ' + gb(s.cacheLimit);
+  el('cacheInfo').textContent = '已用 ' + gb(s.cacheUsed) + '，最多 ' + gb(s.cacheLimit) + '；离线模式里有 ' + s.offlineCount + ' 首';
+  el('autoPrecache').checked = s.autoPrecache;
+  el('precacheStatus').textContent = '现在：' + s.precacheStatus;
   el('log').textContent = s.log.length ? s.log.join('\n') : '还没有播放记录';
   if (document.activeElement !== el('instance')) el('instance').value = s.instance;
 }
@@ -182,6 +188,7 @@ el('addText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.c
 el('quality').onchange = async () => { await api('/api/quality', { height: Number(el('quality').value) }); msg('清晰度已保存，下一首歌开始生效', 'ok'); };
 el('instanceBtn').onclick = async () => { await api('/api/instance', { url: el('instance').value }); msg('服务器已保存，正在重新加载频道', 'ok'); load(); };
 el('refreshBtn').onclick = async () => { await api('/api/refresh'); msg('正在重新加载所有频道', 'ok'); setTimeout(load, 3000); };
+el('autoPrecache').onchange = async () => { await api('/api/autoPrecache', { on: el('autoPrecache').checked }); load(); };
 el('clearCacheBtn').onclick = async () => {
   if (!confirm('清空投影仪上缓存的所有视频？')) return;
   await api('/api/clearCache'); msg('缓存已清空', 'ok'); load();

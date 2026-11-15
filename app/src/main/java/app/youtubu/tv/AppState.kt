@@ -18,7 +18,10 @@ sealed interface Screen {
     data object Home : Screen
     data class Player(val rowKey: String, val videos: List<Video>, val index: Int) : Screen
     data object Parent : Screen
+    data object Offline : Screen
 }
+
+const val OFFLINE_KEY = "offline"
 
 const val FAVORITES_KEY = "favorites"
 private const val ROW_MAX_AGE_MS = 12 * 60 * 60 * 1000L
@@ -34,6 +37,11 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
     val rows = mutableStateMapOf<String, RowState>()
 
     var screen by mutableStateOf<Screen>(Screen.Home)
+
+    /** songs stored completely on the projector, and the background downloader that fills the cache */
+    var offlineVideos by mutableStateOf<List<Video>>(emptyList())
+    lateinit var precacher: Precacher
+    var lastOfflineIndex = 0
 
     /** Home screen position, kept while a video plays so the child comes back to the same card. */
     val homeList = LazyListState()
@@ -112,7 +120,7 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
     /** Short press on the ≡ key: add or remove the current video from the favourites. */
     fun onMenuShort() {
         when (screen) {
-            is Screen.Home, is Screen.Player -> currentVideo?.let { toggleFavorite(it) }
+            is Screen.Home, is Screen.Player, Screen.Offline -> currentVideo?.let { toggleFavorite(it) }
             Screen.Parent -> Unit
         }
     }

@@ -8,5 +8,6 @@ fun App(state: AppState) {
         Screen.Home -> HomeScreen(state)
         is Screen.Player -> PlayerScreen(state, screen)
         Screen.Parent -> ParentScreen(state)
+        Screen.Offline -> OfflineScreen(state)
     }
 }

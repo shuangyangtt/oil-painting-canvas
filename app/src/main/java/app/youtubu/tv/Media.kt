@@ -47,13 +47,14 @@ object Media {
         val c = cache(context)
         for (key in c.keys.toList()) c.removeResource(key)
         File(context.filesDir, "manifests").listFiles()?.forEach { it.delete() }
+        Offline.clear(context)
     }
 
     /**
      * Invidious stream URLs change on every request (expire, signature, ...), so the cache key is built
      * from what identifies the file itself: format (itag), size (clen) and upload version (lmt).
      */
-    private val cacheKeys = CacheKeyFactory { spec ->
+    val cacheKeys = CacheKeyFactory { spec ->
         val uri = spec.uri
         val path = uri.path.orEmpty()
         when {
@@ -68,7 +69,7 @@ object Media {
         }
     }
 
-    fun dataSource(context: Context): DataSource.Factory = CacheDataSource.Factory()
+    fun dataSource(context: Context): CacheDataSource.Factory = CacheDataSource.Factory()
         .setCache(cache(context))
         .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(Net.http))
         .setCacheKeyFactory(cacheKeys)
@@ -84,6 +85,16 @@ object Media {
             val file = File(dir, "$videoId.mpd")
             val age = System.currentTimeMillis() - file.lastModified()
             if (!fresh && file.exists() && age < MANIFEST_MAX_AGE_MS) return@withContext Uri.fromFile(file)
+            val text = fetchManifestText(api, videoId)
+            file.writeText(text)
+            // old manifests are useless after a few hours
+            dir.listFiles()?.filter { System.currentTimeMillis() - it.lastModified() > MANIFEST_MAX_AGE_MS }?.forEach { it.delete() }
+            Uri.fromFile(file)
+        }
+
+    /** Downloads a DASH manifest from Invidious, with all stream URLs made absolute. */
+    suspend fun fetchManifestText(api: Invidious, videoId: String): String =
+        withContext(Dispatchers.IO) {
             val request = Request.Builder().url(api.dashUrl(videoId)).build()
             val text = Net.http.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw IOException("清单 HTTP ${response.code}")
@@ -99,10 +110,7 @@ object Media {
                     .replace(Regex("""(initialization|media)="(/[^"]*)"""")) { it.groupValues[1] + "=\"" + base + it.groupValues[2] + "\"" }
             }
             if (!text.contains("<MPD")) throw IOException("清单内容不对")
-            file.writeText(text)
-            // old manifests are useless after a few hours
-            dir.listFiles()?.filter { System.currentTimeMillis() - it.lastModified() > MANIFEST_MAX_AGE_MS }?.forEach { it.delete() }
-            Uri.fromFile(file)
+            text
         }
 
     // ---- playback log, shown on the parent page so problems on the projector can be diagnosed ----
