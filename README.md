@@ -1,6 +1,6 @@
-<p align="center"><img src="docs/banner.png" width="360" alt="油图布儿歌"></p>
+<p align="center"><img src="docs/banner.png" width="360" alt="油图布"></p>
 
-# 油图布儿歌 · Youtubu Kids TV
+# 油图布 · Oil Painting Canvas
 
 给两岁孩子用**投影仪 / 安卓电视遥控器**自己选儿歌的播放器。一排排大封面，不认字也能选；只显示家长挑好的英文和德文儿歌频道，没有广告、搜索框、评论和推荐。
 
@@ -76,9 +76,18 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 
 <p align="center"><img src="docs/about.png" width="560" alt="关于页面"></p>
 
-- **这是什么**：为自己家孩子自制的儿歌播放器。它不是 YouTube 或 Google 的产品，和 YouTube、Google 以及软件里出现的各个儿歌频道没有任何关系，也没有得到它们的授权或认可。
+- **这是什么**：油图布是为自己家孩子自制的儿歌播放器。它不是 YouTube 或 Google 的产品，和 YouTube、Google 以及软件里出现的各个儿歌频道没有任何关系，也没有得到它们的授权或认可。
 - **软件来源**：电视版的界面和用法沿用电脑版「油图布」，电脑版基于开源项目 [FreeTube](https://freetubeapp.io)（AGPL-3.0）。电视版是另外编写的程序，不包含 FreeTube 的代码；去广告和高清视频依靠开源项目 [Invidious](https://invidious.io)（AGPL-3.0），视频列表和视频地址都经由 Invidious 服务器获取。其他开源软件（均为 Apache-2.0）：AndroidX Media3、Jetpack Compose、OkHttp、Coil、ZXing。感谢以上项目的作者和维护者。
 - **视频来源与版权**：所有视频、封面、频道名称和头像都来自 YouTube，版权归原作者和频道所有。本软件不保存、不修改、也不重新发布任何视频内容；离线缓存只临时保存在本机上，供自己家观看。喜欢某个频道，请到 YouTube 上关注并支持原作者。
-- **仅限个人、非商业使用**：本软件仅供个人和家庭学习、自用，不得用于任何商业用途，不得出售、出租或公开传播本软件和其中的内容。绕开广告和不登录播放的方式可能不符合 YouTube 的服务条款，是否使用、如何使用，由使用者自行判断并承担责任。
+- **视频内容仅供个人观看**：软件本身按 GPL-3.0 开源（见下文「许可证」）；但通过它看到的视频属于各自的版权人，只能个人和家庭观看，不得用于商业用途，也不得录制、下载后再传播。绕开广告和不登录播放的方式可能不符合 YouTube 的服务条款，是否使用、如何使用，由使用者自行判断并承担责任。
 - **隐私**：不需要账号，不收集、不上传任何个人信息和使用记录。频道列表、最喜欢、播放记录和视频缓存只保存在设备上。观看时的网络请求会发给 Invidious 服务器和 YouTube 的图片服务器，它们能看到设备的 IP 地址。
 - **免责声明**：本软件按现状提供，不提供任何形式的保证。YouTube 或 Invidious 的变化可能让部分或全部功能随时失效。视频内容由各频道负责，请家长先看过再给孩子看，并陪伴孩子使用。
+
+## 许可证 · License
+
+油图布（Oil Painting Canvas）是自由软件，按 [GNU 通用公共许可证第 3 版（GPL-3.0）](LICENSE) 发布：你可以自由地使用、学习、修改和再分发它；再分发（包括修改后的版本）时必须同样按 GPL-3.0 开源，并附上源码。本软件不提供任何担保。
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 3. It is distributed WITHOUT ANY WARRANTY. See [LICENSE](LICENSE).
+
+This license covers the app's own source code only. Videos, thumbnails and channel names shown in the app belong to their respective owners on YouTube.
+
