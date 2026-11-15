@@ -106,6 +106,15 @@ fun ParentScreen(state: AppState) {
                 T("投影仪还没有连上网络", size = 18.sp, color = C.pink)
             }
             Spacer(Modifier.weight(1f))
+            var cacheUsed by remember { mutableStateOf(Media.cacheUsed()) }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    cacheUsed = Media.cacheUsed()
+                    delay(3000)
+                }
+            }
+            T("视频缓存：已用 ${formatSize(cacheUsed)} / ${formatSize(Media.cacheLimit)}", size = 15.sp, color = C.dim)
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TvButton("返回", Modifier.focusRequester(firstFocus)) { state.screen = Screen.Home }
                 TvButton("重新加载频道") {

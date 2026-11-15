@@ -80,6 +80,16 @@
     </div>
     <div class="bar"><button class="soft" id="refreshBtn">重新加载所有频道</button></div>
   </div>
+
+  <h2>视频缓存</h2>
+  <div class="card">
+    <div id="cacheInfo">…</div>
+    <p class="sub" style="margin-top:6px">看过的视频会存在投影仪上，再看时直接从投影仪读取，不用等网络。存满后自动删掉最久没看的。</p>
+    <div class="bar"><button class="soft" id="clearCacheBtn">清空缓存</button></div>
+  </div>
+
+  <h2>播放记录 <small style="color:var(--dim);font-weight:400">（出问题时把这里截图发给 Claude）</small></h2>
+  <div class="card"><pre id="log" style="margin:0;white-space:pre-wrap;font-size:13px;max-height:420px;overflow:auto"></pre></div>
 </main>
 <script>
 const el = (id) => document.getElementById(id);
@@ -114,6 +124,9 @@ async function load() {
     '<div class="actions"><button class="danger" onclick="favRemove(\'' + v.videoId + '\')">拿走</button></div></div>').join('')
     : '<div class="empty">孩子在电视上按 ≡ 键就能把歌加进来</div>';
   el('quality').value = String(s.maxHeight);
+  const gb = (n) => n >= 1073741824 ? (n / 1073741824).toFixed(1) + ' GB' : Math.round(n / 1048576) + ' MB';
+  el('cacheInfo').textContent = '已用 ' + gb(s.cacheUsed) + '，最多 ' + gb(s.cacheLimit);
+  el('log').textContent = s.log.length ? s.log.join('\n') : '还没有播放记录';
   if (document.activeElement !== el('instance')) el('instance').value = s.instance;
 }
 
@@ -169,6 +182,10 @@ el('addText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.c
 el('quality').onchange = async () => { await api('/api/quality', { height: Number(el('quality').value) }); msg('清晰度已保存，下一首歌开始生效', 'ok'); };
 el('instanceBtn').onclick = async () => { await api('/api/instance', { url: el('instance').value }); msg('服务器已保存，正在重新加载频道', 'ok'); load(); };
 el('refreshBtn').onclick = async () => { await api('/api/refresh'); msg('正在重新加载所有频道', 'ok'); setTimeout(load, 3000); };
+el('clearCacheBtn').onclick = async () => {
+  if (!confirm('清空投影仪上缓存的所有视频？')) return;
+  await api('/api/clearCache'); msg('缓存已清空', 'ok'); load();
+};
 el('resetBtn').onclick = async () => {
   if (!confirm('把频道恢复成默认的 18 个英文和德文儿歌频道？（最喜欢不受影响）')) return;
   await api('/api/reset'); load();

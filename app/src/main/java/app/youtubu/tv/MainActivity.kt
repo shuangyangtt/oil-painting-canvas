@@ -28,6 +28,8 @@ class MainActivity : ComponentActivity() {
                 .crossfade(true)
                 .build()
         }
+        // open the video cache early (it scans its folder once), so the first song starts faster
+        Thread { Media.cache(applicationContext) }.start()
         state = AppState(Store(applicationContext), lifecycleScope)
         state.loadAll()
         setContent { App(state) }

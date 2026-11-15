@@ -142,6 +142,7 @@ class ParentServer(private val context: Context, private val state: AppState) {
                 "/api/quality" -> onMain { state.store.maxHeight = json.getInt("height"); ok() }
                 "/api/refresh" -> onMain { state.refreshAll(); ok() }
                 "/api/reset" -> onMain { state.resetChannels(); ok() }
+                "/api/clearCache" -> withContext(Dispatchers.IO) { Media.clearCache(context); ok() }
                 else -> JSONObject().put("error", "没有这个功能")
             }
         }
@@ -162,6 +163,9 @@ class ParentServer(private val context: Context, private val state: AppState) {
             .put("favorites", JSONArray(state.favorites.map { it.toJson() }))
             .put("instance", state.store.instance)
             .put("maxHeight", state.store.maxHeight)
+            .put("cacheUsed", Media.cacheUsed())
+            .put("cacheLimit", Media.cacheLimit)
+            .put("log", JSONArray(Media.logLines()))
     }
 
     /** Each line is a channel link, @handle or channel id; a single line of plain words is a search. */

@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,14 +63,21 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.common.Format
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.exoplayer.DecoderReuseEvaluation
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.dash.DefaultDashChunkSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val SEEK_MS = 10_000L
 private const val OVERLAY_MS = 4_000L
@@ -90,16 +98,28 @@ fun PlayerScreen(state: AppState, screen: Screen.Player) {
     var duration by remember { mutableLongStateOf(0L) }
     var overlayUntil by remember { mutableLongStateOf(System.currentTimeMillis() + OVERLAY_MS) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var usingFallback by remember { mutableStateOf(false) }
+    /** 0 = DASH with the cached manifest, 1 = DASH with a fresh manifest, 2 = 360p single file (most robust) */
+    var level by remember { mutableIntStateOf(0) }
+    // lowered for the rest of this session when the projector cannot keep up (frozen picture)
+    var heightCap by remember { mutableIntStateOf(state.store.maxHeight) }
+    val scope = rememberCoroutineScope()
+    val loadJob = remember { arrayOfNulls<Job>(1) }
 
-    val dataSource = remember { OkHttpDataSource.Factory(Net.http) }
+    val selector = remember { DefaultTrackSelector(context) }
+    fun applyTrackLimits() {
+        selector.parameters = selector.buildUponParameters()
+            // H.264 has a hardware decoder on every projector; AV1 and VP9 are often decoded in software,
+            // which cannot keep up: the picture freezes while the music goes on
+            .setPreferredVideoMimeTypes(MimeTypes.VIDEO_H264)
+            .setMaxVideoSize(Int.MAX_VALUE, heightCap)
+            // switching resolution must not re-create the decoder mid-song (another cause of frozen pictures)
+            .setAllowVideoNonSeamlessAdaptiveness(false)
+            .build()
+    }
     val player = remember {
-        val selector = DefaultTrackSelector(context).apply {
-            parameters = buildUponParameters()
-                .setMaxVideoSize(Int.MAX_VALUE, state.store.maxHeight)
-                .build()
-        }
-        ExoPlayer.Builder(context).setTrackSelector(selector).build().apply { playWhenReady = true }
+        applyTrackLimits()
+        val renderers = DefaultRenderersFactory(context).setEnableDecoderFallback(true)
+        ExoPlayer.Builder(context, renderers).setTrackSelector(selector).build().apply { playWhenReady = true }
     }
 
     fun showOverlay() {
@@ -112,20 +132,37 @@ fun PlayerScreen(state: AppState, screen: Screen.Player) {
         showOverlay()
     }
 
+    fun short(title: String) = if (title.length > 28) title.take(28) + "…" else title
+
     // also called from the player listener, so it reads the current index instead of a captured video
-    fun load(fallback: Boolean) {
-        usingFallback = fallback
+    fun load(newLevel: Int, startMs: Long) {
+        level = newLevel
         val video = videos[index]
-        val source = if (fallback) {
-            ProgressiveMediaSource.Factory(dataSource).createMediaSource(MediaItem.fromUri(state.api.mp4Url(video.id)))
-        } else {
-            DashMediaSource.Factory(dataSource).createMediaSource(
-                MediaItem.Builder().setUri(state.api.dashUrl(video.id)).setMimeType(MimeTypes.APPLICATION_MPD).build(),
-            )
+        loadJob[0]?.cancel()
+        loadJob[0] = scope.launch {
+            val dataSource = Media.dataSource(context)
+            val source = if (newLevel < 2) {
+                val manifest = try {
+                    Media.manifest(context, state.api, video.id, fresh = newLevel == 1)
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    Media.log("「${short(video.title)}」取清单失败：${e.message}，改用 360p")
+                    null
+                }
+                if (manifest == null) {
+                    level = 2
+                    ProgressiveMediaSource.Factory(dataSource).createMediaSource(MediaItem.fromUri(state.api.mp4Url(video.id)))
+                } else {
+                    DashMediaSource.Factory(DefaultDashChunkSource.Factory(dataSource), DefaultDataSource.Factory(context))
+                        .createMediaSource(MediaItem.Builder().setUri(manifest).setMimeType(MimeTypes.APPLICATION_MPD).build())
+                }
+            } else {
+                ProgressiveMediaSource.Factory(dataSource).createMediaSource(MediaItem.fromUri(state.api.mp4Url(video.id)))
+            }
+            player.setMediaSource(source, startMs)
+            player.prepare()
+            player.play()
         }
-        player.setMediaSource(source)
-        player.prepare()
-        player.play()
     }
 
     LaunchedEffect(index, playCount) {
@@ -133,7 +170,8 @@ fun PlayerScreen(state: AppState, screen: Screen.Player) {
         state.lastFocus = screen.rowKey to index
         position = 0
         duration = 0
-        load(fallback = false)
+        Media.log("播放「${short(video.title)}」")
+        load(0, 0)
     }
 
     DisposableEffect(player) {
@@ -148,28 +186,86 @@ fun PlayerScreen(state: AppState, screen: Screen.Player) {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                if (!usingFallback) {
-                    load(fallback = true)
+                // carry on where it stopped instead of starting the song again
+                val at = player.currentPosition
+                Media.log("出错（${error.errorCodeName}）：${error.cause?.message ?: error.message}")
+                if (level < 2) {
+                    load(level + 1, at)
                 } else {
                     state.showToast("这首歌现在放不了，换下一首")
                     next()
                 }
             }
         }
+        val analytics = object : AnalyticsListener {
+            override fun onVideoDecoderInitialized(
+                eventTime: AnalyticsListener.EventTime,
+                decoderName: String,
+                initializedTimestampMs: Long,
+                initializationDurationMs: Long,
+            ) {
+                Media.log("解码器：$decoderName")
+            }
+
+            override fun onVideoInputFormatChanged(
+                eventTime: AnalyticsListener.EventTime,
+                format: Format,
+                decoderReuseEvaluation: DecoderReuseEvaluation?,
+            ) {
+                Media.log("画面：${format.sampleMimeType} ${format.width}×${format.height}")
+            }
+
+            override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
+                if (droppedFrames >= 20) Media.log("掉帧 $droppedFrames 帧")
+            }
+        }
         player.addListener(listener)
+        player.addAnalyticsListener(analytics)
         onDispose {
+            loadJob[0]?.cancel()
             player.removeListener(listener)
+            player.removeAnalyticsListener(analytics)
             player.release()
             state.currentVideo = null
         }
     }
 
-    // progress bar and overlay timer
+    // progress bar, overlay timer and the frozen picture watchdog
     LaunchedEffect(Unit) {
+        var lastRendered = -1
+        var lastChange = System.currentTimeMillis()
         while (true) {
             now = System.currentTimeMillis()
             position = player.currentPosition
             duration = player.duration.takeIf { it != MediaC.TIME_UNSET } ?: 0
+
+            val counters = player.videoDecoderCounters
+            if (counters != null && player.isPlaying && player.playbackState == Player.STATE_READY) {
+                counters.ensureUpdated()
+                val rendered = counters.renderedOutputBufferCount
+                if (rendered != lastRendered) {
+                    lastRendered = rendered
+                    lastChange = now
+                } else if (now - lastChange > 3000) {
+                    // the music plays on but no new picture for 3 seconds: the decoder is stuck
+                    val at = player.currentPosition
+                    lastChange = now + 5000
+                    if (heightCap > 720) {
+                        heightCap = 720
+                        Media.log("画面卡住，降到 720p 从 ${formatTime(at / 1000)} 接着放")
+                        applyTrackLimits()
+                        load(level.coerceAtMost(1), at)
+                    } else if (level < 2) {
+                        Media.log("画面卡住，改用 360p 从 ${formatTime(at / 1000)} 接着放")
+                        load(2, at)
+                    } else {
+                        Media.log("画面卡住，换下一首")
+                        next()
+                    }
+                }
+            } else {
+                lastChange = now
+            }
             delay(250)
         }
     }
