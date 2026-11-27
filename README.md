@@ -22,15 +22,26 @@ A nursery-song player for toddlers: remote-friendly on projectors / Android TV, 
 
 ## 平板版
 
-<p align="center"><img src="docs/pad.png" width="720" alt="平板版"></p>
+在家用 WiFi 提前下载，出门不用网也能看。
 
-- 在家用 WiFi 自动下载，存到内存卡，最多 128 GB；连手机热点时不下载
-- 中文 / English / Deutsch 分类；只显示已存好的歌，点一下全屏播放
-- 字幕跟着下载，播放时「字」按钮开关；进度条不能拖，防止孩子乱点
-- 家长设置：按住右上角小锁 2 秒
-- 华为平板熄屏会停止下载：插着电、开着应用即可（会自动黑屏、调到最低亮度）
+<p align="center"><img src="docs/pad-home.jpg" width="720" alt="平板版选歌页：中文分类"></p>
 
-**视频服务器**：可以登记多个，出问题自动切换，家长设置里能测速。公共 Invidious 服务器越来越不稳定，建议在家里电脑上自建一个（`invidious` + `invidious-companion` + `postgres`），做法见 [v2.2 说明](docs/release-notes/v2.2.md)。
+- **中文 / English / Deutsch 分类**，只显示已经存好的歌，点一下全屏播放
+- **自动下载**到内存卡，最多 128 GB，同时下 32 首；连手机热点时不下载
+
+<p align="center"><img src="docs/pad-player.jpg" width="720" alt="平板版播放页"></p>
+
+- **大按钮播放页**：返回、上一首、暂停、下一首、❤；「字」开关字幕（字幕跟着歌一起下载）
+- 进度条只能看不能拖，防止孩子乱点
+
+<p align="center"><img src="docs/pad-parent.png" width="720" alt="家长设置：下载"></p>
+
+- **家长设置**：按住右上角小锁 2 秒进入；能看下载进度和容量，开关字幕和自动下载，管理频道
+- 华为平板熄屏会停止下载：插着电、开着应用即可，没人碰时会自动黑屏并调到最低亮度
+
+<p align="center"><img src="docs/pad-servers.png" width="720" alt="家长设置：视频服务器测速"></p>
+
+- **视频服务器**：可以登记多个，出问题自动切换；能给每台测速，一键选最快的。公共 Invidious 服务器越来越不稳定，建议在家里电脑上自建一个（`invidious` + `invidious-companion` + `postgres`），做法见 [v2.2 说明](docs/release-notes/v2.2.md)
 
 ## 默认频道
 
