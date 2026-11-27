@@ -77,6 +77,15 @@ object Media {
         .setCacheKeyFactory(cacheKeys)
         .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
+    // downloads give up on a stuck connection after 15 seconds and try that piece again
+    private val downloadHttp by lazy { Net.http.newBuilder().readTimeout(15, java.util.concurrent.TimeUnit.SECONDS).build() }
+
+    /** For background downloads (offline songs): same cache, quicker to notice a stuck connection. */
+    fun downloadSource(context: Context): CacheDataSource.Factory = CacheDataSource.Factory()
+        .setCache(cache(context))
+        .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(downloadHttp))
+        .setCacheKeyFactory(cacheKeys)
+
     /**
      * The DASH manifest of a video as a local file. It is kept for 5 hours (the stream URLs in it stay
      * valid that long), so a song played again starts without asking Invidious, straight from the cache.
