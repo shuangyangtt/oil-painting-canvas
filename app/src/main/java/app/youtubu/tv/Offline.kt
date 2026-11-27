@@ -21,6 +21,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -166,6 +168,16 @@ class Precacher(private val context: Context, private val state: AppState, priva
     /** what each worker is doing, for the status line */
     private val progress = ConcurrentHashMap<Int, String>()
     private val newBytes = AtomicLong()
+
+    // the Invidious server blocks an IP that asks for too many manifests at once, so manifests are fetched
+    // one at a time with a gap (the video data itself comes from its media servers, in parallel)
+    private val manifestGate = Semaphore(1)
+    @Volatile
+    private var lastManifest = 0L
+    /** all workers wait until then when the server says "too many requests" or cannot be reached */
+    @Volatile
+    private var holdUntil = 0L
+    private var holdStep = 60_000L
     private var lastRefresh = System.currentTimeMillis()
 
     fun start() {
@@ -248,6 +260,11 @@ class Precacher(private val context: Context, private val state: AppState, priva
             status = "只用 WiFi 下载：现在连的是手机热点或流量，不下载"
             return 60_000
         }
+        val hold = holdUntil - System.currentTimeMillis()
+        if (hold > 0) {
+            status = "服务器让我们慢一点，${hold / 60_000 + 1} 分钟后继续"
+            return hold
+        }
         if (Media.cacheUsed() > Media.cacheLimit - ONLINE_RESERVE) {
             status = "已存满（${formatSize(Media.cacheUsed())}）"
             return 20 * 60_000
@@ -267,6 +284,17 @@ class Precacher(private val context: Context, private val state: AppState, priva
             3_000
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
+            // the server is overloaded or blocks us for a while: everybody waits (1 min, then longer), the song is fine
+            if (serverBusy(e)) {
+                synchronized(lock) {
+                    if (System.currentTimeMillis() >= holdUntil) {
+                        holdUntil = System.currentTimeMillis() + holdStep
+                        Media.log("服务器忙（${e.message?.take(60)}），全部暂停 ${holdStep / 60_000} 分钟")
+                        holdStep = minOf(holdStep * 2, 30 * 60_000L)
+                    }
+                }
+                return 5_000
+            }
             // a song is only given up after 3 failures (a short network hiccup must not rule it out)
             val count = synchronized(lock) {
                 val c = (failures[target.id] ?: 0) + 1
@@ -292,15 +320,16 @@ class Precacher(private val context: Context, private val state: AppState, priva
         var text = ""
         for (attempt in 1..5) {
             text = try {
-                Media.fetchManifestText(state.api, video.id)
+                manifestText(video.id)
             } catch (e: IOException) {
-                if (attempt == 5) throw e
+                if (attempt == 5 || serverBusy(e)) throw e
                 delay(2_000)
                 continue
             }
             if (!text.contains("sabr-segment")) break
             delay(2_000)
         }
+        holdStep = 60_000L
         if (text.contains("sabr-segment")) throw IOException("只拿到分段格式的清单")
 
         val sets = Regex("<AdaptationSet\\b[^>]*>.*?</AdaptationSet>", RegexOption.DOT_MATCHES_ALL).findAll(text).map { it.value }.toList()
@@ -365,6 +394,21 @@ class Precacher(private val context: Context, private val state: AppState, priva
         withContext(Dispatchers.Main) { state.offlineVideos = list }
     }
 
+    private suspend fun manifestText(videoId: String): String = manifestGate.withPermit {
+        val wait = lastManifest + MANIFEST_GAP_MS - System.currentTimeMillis()
+        if (wait > 0) delay(wait)
+        try {
+            Media.fetchManifestText(state.api, videoId)
+        } finally {
+            lastManifest = System.currentTimeMillis()
+        }
+    }
+
+    private fun serverBusy(e: Exception): Boolean {
+        val m = e.message ?: return false
+        return m.contains("429") || m.contains("HTTP 5") || m.contains("ailed to connect") || m.contains("Unable to resolve")
+    }
+
     /**
      * Stores one stream file in 4 MB pieces (YouTube slows down one long connection; short ranges go at full speed).
      * A failed or stuck piece is tried again on its own; pieces already stored are skipped.
@@ -422,6 +466,7 @@ class Precacher(private val context: Context, private val state: AppState, priva
 }
 
 private const val CHUNK = 4L * 1024 * 1024
+private const val MANIFEST_GAP_MS = 700L
 
 fun formatSpeed(bytesPerSecond: Long): String = when {
     bytesPerSecond >= 1024 * 1024 -> "%.1f MB/s".format(bytesPerSecond / (1024.0 * 1024))
