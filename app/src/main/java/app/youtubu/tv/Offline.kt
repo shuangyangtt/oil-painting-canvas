@@ -47,7 +47,8 @@ object Offline {
     private val entries = LinkedHashMap<String, Entry>()
     private var loaded = false
 
-    private fun dir(context: Context) = File(context.filesDir, "offline").apply { mkdirs() }
+    // next to the video cache (memory card or inside), so the list always matches what is stored
+    private fun dir(context: Context) = File(Media.root(context), "offline").apply { mkdirs() }
 
     @Synchronized
     private fun ensureLoaded(context: Context) {
@@ -148,7 +149,8 @@ class Precacher(private val context: Context, private val state: AppState, priva
         private set
 
     /** projector: one song at a time (it pauses while a video plays); tablet: several songs at once */
-    private val workers = if (BuildConfig.PAD) 4 else 1
+    // (32 songs = up to 64 connections, picture and sound each; measured: more connections = faster)
+    private val workers = if (BuildConfig.PAD) 32 else 1
 
     private class Paused : IOException("暂停")
 
@@ -191,7 +193,7 @@ class Precacher(private val context: Context, private val state: AppState, priva
             }
             repeat(workers) { w ->
                 launch {
-                    delay(w * 1_500L)
+                    delay(w * if (BuildConfig.PAD) 300L else 1_500L)
                     while (isActive) {
                         val wait = step(w)
                         if (wait > 0) delay(wait)
@@ -223,7 +225,8 @@ class Precacher(private val context: Context, private val state: AppState, priva
         val items = progress.values.toList()
         if (items.isEmpty()) return
         val sp = if (speed > 0) " · ${formatSpeed(speed)}" else ""
-        status = "正在存 ${items.size} 首$sp：" + items.joinToString("；")
+        val shown = items.take(3).joinToString("；") + if (items.size > 3) " 等" else ""
+        status = "正在存 ${items.size} 首$sp：$shown"
     }
 
     /** One step of a worker's loop; returns how long to wait before the next one. */

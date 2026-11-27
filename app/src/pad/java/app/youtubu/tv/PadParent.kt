@@ -96,11 +96,13 @@ fun PadParent(state: AppState) {
                                 .clip(RoundedCornerShape(7.dp)).background(C.yellow),
                         )
                     }
+                    Spacer(Modifier.height(6.dp))
+                    T(if (Media.onSdCard) "存在内存卡上" else "存在平板内部（没有找到内存卡）", size = 14.sp, color = C.faint)
                     Spacer(Modifier.height(10.dp))
                     T("现在：" + state.precacher.status, size = 16.sp, color = C.dim)
                     Spacer(Modifier.height(6.dp))
                     T(
-                        "顺序：先「最喜欢」，再每个频道轮流（最受欢迎的先存）。每首 720p。只用家里的 WiFi 下载（手机热点不下载，不会用流量）。存满 16 GB 就停止下载，带出去只放存好的歌，不需要网络。" +
+                        "顺序：先「最喜欢」，再每个频道轮流（最受欢迎的先存）。每首 720p，同时下 32 首。只用家里的 WiFi 下载（手机热点不下载，不会用流量）。存满 16 GB 就停止下载，带出去只放存好的歌，不需要网络。" +
                             "华为平板关屏几分钟后会冻结应用、停止下载，所以：插着电、开着油图布时屏幕会保持亮着，1 分钟没人碰就变成黑色的「夜间下载」画面。睡前插上电、打开油图布放着就行。",
                         size = 14.sp, color = C.faint,
                     )

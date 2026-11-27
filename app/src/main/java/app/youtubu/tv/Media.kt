@@ -30,10 +30,58 @@ object Media {
     var cacheLimit = 0L
         private set
 
+    private var root: File? = null
+
+    /** Whether the songs are kept on the tablet's memory card. */
+    var onSdCard = false
+        private set
+
+    /**
+     * Where the video cache and the offline song list live (always together, so one never outlives the other).
+     * Tablet: on the memory card when one is inserted, else inside the tablet; projector: inside.
+     */
+    @Synchronized
+    fun root(context: Context): File {
+        root?.let { return it }
+        val app = context.applicationContext
+        var chosen = app.filesDir
+        if (BuildConfig.PAD) {
+            val card = try {
+                app.getExternalFilesDirs(null).drop(1).firstOrNull { d ->
+                    d != null && android.os.Environment.isExternalStorageRemovable(d) &&
+                        android.os.Environment.getExternalStorageState(d) == android.os.Environment.MEDIA_MOUNTED
+                }
+            } catch (_: Exception) {
+                null
+            }
+            if (card != null) {
+                chosen = card
+                onSdCard = true
+            }
+        }
+        root = chosen
+        return chosen
+    }
+
     @Synchronized
     fun cache(context: Context): SimpleCache {
         cache?.let { return it }
-        val dir = File(context.applicationContext.filesDir, "video-cache").apply { mkdirs() }
+        val app = context.applicationContext
+        val base = root(app)
+        if (onSdCard) {
+            // songs stored inside the tablet by an older version: removed, the memory card takes over
+            val old = File(app.filesDir, "video-cache")
+            if (old.exists()) {
+                try {
+                    SimpleCache.delete(old, StandaloneDatabaseProvider(app))
+                } catch (_: Exception) {
+                    old.deleteRecursively()
+                }
+                File(app.filesDir, "offline").deleteRecursively()
+                Media.log("已删除平板内部的旧缓存，改存到内存卡")
+            }
+        }
+        val dir = File(base, "video-cache").apply { mkdirs() }
         val used = dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
         // projector: 4 GB, leaving at least 1 GB free; tablet: 16 GB of songs for offline use, leaving 2 GB free
         val max = if (BuildConfig.PAD) 16 * GB else 4 * GB
@@ -78,7 +126,14 @@ object Media {
         .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
     // downloads give up on a stuck connection after 15 seconds and try that piece again
-    private val downloadHttp by lazy { Net.http.newBuilder().readTimeout(15, java.util.concurrent.TimeUnit.SECONDS).build() }
+    // own connection per request (HTTP/1.1): with HTTP/2 all parallel downloads would share one TCP connection
+    private val downloadHttp by lazy {
+        Net.http.newBuilder()
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
+            .connectionPool(okhttp3.ConnectionPool(64, 2, java.util.concurrent.TimeUnit.MINUTES))
+            .build()
+    }
 
     /** For background downloads (offline songs): same cache, quicker to notice a stuck connection. */
     fun downloadSource(context: Context): CacheDataSource.Factory = CacheDataSource.Factory()
