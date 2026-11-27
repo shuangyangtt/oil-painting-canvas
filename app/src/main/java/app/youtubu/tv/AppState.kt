@@ -72,7 +72,9 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
 
     private fun loadRow(channel: Channel, force: Boolean = false) {
         val cached = store.cachedRow(channel.id)
-        val fresh = cached != null && System.currentTimeMillis() - cached.first < ROW_MAX_AGE_MS
+        // tablet: a list of only one page (saved by an older version) is fetched again with all 5 pages
+        val fresh = cached != null && System.currentTimeMillis() - cached.first < ROW_MAX_AGE_MS &&
+            (!BuildConfig.PAD || cached.second.size > 60)
         rows[channel.id] = RowState(cached?.second ?: emptyList(), loading = force || !fresh)
         if (channel.avatar.isEmpty()) loadAvatar(channel)
         if (fresh && !force) return

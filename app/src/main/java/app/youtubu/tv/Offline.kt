@@ -319,7 +319,11 @@ class Precacher(private val context: Context, private val state: AppState, priva
             candidates().firstOrNull { it.id !in busy && !Offline.isComplete(context, it.id) }?.also { busy += it.id }
         }
         if (target == null) {
-            if (synchronized(lock) { busy.isEmpty() }) status = "推荐的歌都已存好"
+            // nothing free right now, but other songs are still downloading or song lists still loading:
+            // look again soon (sleeping long here left only a few workers busy)
+            val stillGoing = synchronized(lock) { busy.isNotEmpty() } || state.rows.values.any { it.loading }
+            if (stillGoing) return 30_000
+            status = "推荐的歌都已存好"
             return if (BuildConfig.PAD) 10 * 60_000L else 20 * 60_000L
         }
         return try {
