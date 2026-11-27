@@ -43,8 +43,9 @@ fun isCharging(context: Context): Boolean {
 
 /** Still songs to fetch (not finished, not full, not switched off). */
 fun downloading(state: AppState): Boolean {
+    // only while really fetching songs at home: not when full, finished, off, offline or on a phone hotspot
     val s = state.precacher.status
-    return state.store.autoPrecache && !s.startsWith("推荐的歌都已存好") && !s.startsWith("已存满") && s != "已关闭"
+    return state.store.autoPrecache && (s.startsWith("正在存") || s == "等待开始")
 }
 
 /**

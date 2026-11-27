@@ -148,7 +148,7 @@ class Precacher(private val context: Context, private val state: AppState, priva
             delay(if (BuildConfig.PAD) 3_000 else 15_000) // let the home screen load first
             while (isActive) {
                 // tablet: keeps running for days, so the song lists are refreshed now and then (new songs get stored too)
-                if (BuildConfig.PAD && System.currentTimeMillis() - lastRefresh > 6 * 60 * 60_000L) {
+                if (BuildConfig.PAD && System.currentTimeMillis() - lastRefresh > 6 * 60 * 60_000L && Net.unmetered(context)) {
                     lastRefresh = System.currentTimeMillis()
                     withContext(Dispatchers.Main) { state.loadAll() }
                     delay(20_000)
@@ -191,6 +191,10 @@ class Precacher(private val context: Context, private val state: AppState, priva
         if (!Net.online(context)) {
             status = "没有网络，等网络恢复后继续"
             return 30_000
+        }
+        if (BuildConfig.PAD && !Net.unmetered(context)) {
+            status = "只用 WiFi 下载：现在连的是手机热点或流量，不下载"
+            return 60_000
         }
         if (Media.cacheUsed() > Media.cacheLimit - ONLINE_RESERVE) {
             status = "已存满（${formatSize(Media.cacheUsed())}）"

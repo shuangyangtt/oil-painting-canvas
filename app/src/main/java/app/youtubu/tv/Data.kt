@@ -59,6 +59,14 @@ object Net {
         true
     }
 
+    /** Home WiFi: not metered (a phone hotspot counts as metered, so the tablet never uses mobile data for songs). */
+    fun unmetered(context: android.content.Context): Boolean = try {
+        val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        cm.activeNetwork != null && !cm.isActiveNetworkMetered
+    } catch (_: Exception) {
+        false
+    }
+
     // the Invidious instance rejects requests without a browser User-Agent (403)
     const val USER_AGENT =
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36"
