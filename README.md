@@ -30,6 +30,21 @@ A nursery-song player for Android TV and projectors, made for a toddler who pick
 
 **默认频道**（可以在管理页随意增删）：Super Simple Songs、Pinkfong Baby Shark、Little Baby Bum、CoComelon、Mother Goose Club、Bounce Patrol、Dave and Ava、Hey Bear Sensory；Sing mit mir、Kinderlieder zum Mitsingen und Bewegen、Hurra Kinderlieder、CoComelon Deutsch、Pinkfong Baby Hai、Little Baby Bum Deutsch、Lichterkinder、Volker Rosin、Rolf Zuckowski、KiKAninchen。
 
+## 平板版
+
+给安卓平板用的版本（触屏，和投影仪版可以同时装）。它会**自动把儿歌下载到平板上**，宝宝只看存好的歌，不用网也能立刻播放。
+
+- 自动下载：打开就开始，先「最喜欢」，再每个频道轮流（最受欢迎的先存），每首 720p，最多 16 GB
+- 夜间下载：华为平板关屏几分钟后会冻结应用。所以插着电、开着油图布、还没下完时屏幕保持亮着，1 分钟没人碰就变成全黑、最低亮度的下载画面
+- 每 6 小时自动看看频道有没有新歌，有就接着下
+- 宝宝界面：一排排大封面，只显示已经存好的歌；点一下全屏播放，播完自动放下一首
+- 播放时点屏幕：大的返回、上一首、暂停、下一首、❤ 最喜欢；进度条只能看不能拖，避免乱跳
+- 家长设置：按住右上角小锁 2 秒。能看下载进度和占用空间、开关自动下载、刷新歌单、清空下载、添加或删除频道
+
+<p align="center"><img src="docs/pad.png" width="720" alt="平板版"></p>
+
+安装：到 Releases 下载 `oil-painting-canvas-pad-*.apk`，或平板打开 USB 调试、连上电脑后运行 `./install.sh pad`。
+
 ## 播放稳定性
 
 - 优先使用 H.264 编码：几乎所有投影仪都有它的硬件解码（AV1 / VP9 常常只能软解，会画面卡住、声音继续）
@@ -55,8 +70,8 @@ A nursery-song player for Android TV and projectors, made for a toddler who pick
 
 ```
 echo "sdk.dir=$HOME/Android/Sdk" > local.properties
-./gradlew assembleRelease
-# 安装包：app/build/outputs/apk/release/app-release.apk
+./gradlew assembleTvRelease    # 投影仪/电视版：app/build/outputs/apk/tv/release/app-tv-release.apk
+./gradlew assemblePadRelease   # 平板版：app/build/outputs/apk/pad/release/app-pad-release.apk
 ```
 
 技术：Kotlin、Jetpack Compose（电视遥控器焦点）、AndroidX Media3 ExoPlayer（DASH 播放和缓存）、OkHttp、Coil、ZXing。所有数据只保存在设备本地。

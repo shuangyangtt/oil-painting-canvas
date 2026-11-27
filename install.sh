@@ -1,12 +1,20 @@
 #!/bin/bash
-# 把油图布儿歌装到投影仪上（投影仪和电脑要连同一个 WiFi，投影仪上要打开「网络调试 / ADB 调试」）
-# 用法：./install.sh 投影仪的IP地址      例如 ./install.sh 192.168.1.50
+# 安装油图布儿歌
+#   投影仪 / 电视（WiFi 调试）：./install.sh 投影仪的IP地址      例如 ./install.sh 192.168.1.50
+#   平板（数据线，打开 USB 调试）：./install.sh pad
 set -e
 cd "$(dirname "$0")"
-APK=app/build/outputs/apk/release/app-release.apk
+if [ "$1" = "pad" ]; then
+  APK=app/build/outputs/apk/pad/release/app-pad-release.apk
+  [ -f "$APK" ] || { echo "正在打包平板版……"; ./gradlew assemblePadRelease -q; }
+  adb install -r "$APK"
+  echo "装好了：在平板上打开「油图布儿歌」，它会自动开始下载儿歌（最多 16 GB）"
+  exit 0
+fi
+APK=app/build/outputs/apk/tv/release/app-tv-release.apk
 if [ ! -f "$APK" ]; then
   echo "正在打包……"
-  ./gradlew assembleRelease -q
+  ./gradlew assembleTvRelease -q
 fi
 if [ -n "$1" ]; then
   adb connect "$1:5555"

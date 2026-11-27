@@ -145,8 +145,14 @@ class Precacher(private val context: Context, private val state: AppState, priva
     fun start() {
         if (job?.isActive == true) return
         job = scope.launch(Dispatchers.IO) {
-            delay(15_000) // let the home screen load first
+            delay(if (BuildConfig.PAD) 3_000 else 15_000) // let the home screen load first
             while (isActive) {
+                // tablet: keeps running for days, so the song lists are refreshed now and then (new songs get stored too)
+                if (BuildConfig.PAD && System.currentTimeMillis() - lastRefresh > 6 * 60 * 60_000L) {
+                    lastRefresh = System.currentTimeMillis()
+                    withContext(Dispatchers.Main) { state.loadAll() }
+                    delay(20_000)
+                }
                 val wait = step()
                 if (wait > 0) delay(wait)
             }
@@ -158,7 +164,10 @@ class Precacher(private val context: Context, private val state: AppState, priva
         writer?.cancel()
     }
 
-    private fun playing() = state.screen is Screen.Player
+    private var lastRefresh = System.currentTimeMillis()
+
+    // the tablet only plays stored songs (no internet needed), so downloading goes on while a song plays
+    private fun playing() = !BuildConfig.PAD && state.screen is Screen.Player
 
     private fun candidates(): List<Video> {
         val rows = state.channels.mapNotNull { state.rows[it.id]?.videos }
@@ -190,7 +199,7 @@ class Precacher(private val context: Context, private val state: AppState, priva
         val target = candidates().firstOrNull { !Offline.isComplete(context, it.id) }
         if (target == null) {
             status = "推荐的歌都已存好"
-            return 20 * 60_000
+            return if (BuildConfig.PAD) 60 * 60_000L else 20 * 60_000L
         }
         return try {
             download(target)
