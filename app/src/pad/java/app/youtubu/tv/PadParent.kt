@@ -147,6 +147,40 @@ fun PadParent(state: AppState) {
             }
             item {
                 Card {
+                    T("省电", size = 20.sp, weight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    var chargingOnly by remember { mutableStateOf(state.store.chargingOnly) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            T("只在充电时下载", size = 18.sp)
+                            T("下载很耗电，没插电时先不下", size = 14.sp, color = C.faint)
+                        }
+                        Switch(chargingOnly) {
+                            chargingOnly = it
+                            state.store.chargingOnly = it
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    T("每次最多看", size = 18.sp)
+                    T("时间到了会暂停并提醒休息，屏幕随后自动熄灭；家长按住小锁 2 秒可以继续", size = 14.sp, color = C.faint)
+                    Spacer(Modifier.height(10.dp))
+                    var limit by remember { mutableStateOf(state.store.playLimitMin) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        for (m in listOf(0, 20, 30, 45, 60)) {
+                            val on = m == limit
+                            Btn(if (m == 0) "不限" else "$m 分钟", if (on) C.yellow else C.card, if (on) C.bg else C.text) {
+                                limit = m
+                                state.store.playLimitMin = m
+                                state.watchMs = 0
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    T("另外：暂停时屏幕会照常熄灭；歌下完、没插电或不在家里 WiFi 时，应用不会让平板保持唤醒。", size = 14.sp, color = C.faint)
+                }
+            }
+            item {
+                Card {
                     T("频道（${state.channels.size} 个）", size = 20.sp, weight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
                     T("只下载这些频道的歌。点「中文 / English / Deutsch」可以改频道放在哪个分类里。删掉的频道，已经存好的歌会放在「更多儿歌」里。", size = 14.sp, color = C.faint)

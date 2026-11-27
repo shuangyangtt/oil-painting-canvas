@@ -269,6 +269,10 @@ class Precacher(private val context: Context, private val state: AppState, priva
             status = "只用 WiFi 下载：现在连的是手机热点或流量，不下载"
             return 60_000
         }
+        if (BuildConfig.PAD && state.store.chargingOnly && !Power.charging(context)) {
+            status = "只在充电时下载：插上电后继续"
+            return 60_000
+        }
         val hold = holdUntil - System.currentTimeMillis()
         if (hold > 0) {
             status = "服务器让我们慢一点，${hold / 60_000 + 1} 分钟后继续"

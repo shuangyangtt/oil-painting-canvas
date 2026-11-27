@@ -39,6 +39,10 @@ A nursery-song player for toddlers: remote-friendly on projectors / Android TV, 
 - **家长设置**：按住右上角小锁 2 秒进入；能看下载进度和容量，开关自动下载，管理频道
 - 华为平板熄屏会停止下载：插着电、开着应用即可，没人碰时会自动黑屏并调到最低亮度
 
+<p align="center"><img src="docs/pad-power.png" width="720" alt="家长设置：省电"></p>
+
+- **省电**：默认只在充电时下载；暂停时屏幕照常熄灭；没在下载时不让平板保持唤醒；可设置「每次最多看」20～60 分钟，到时提醒休息
+
 <p align="center"><img src="docs/pad-servers.png" width="720" alt="家长设置：视频服务器测速"></p>
 
 - **视频服务器**：可以登记多个，出问题自动切换；能给每台测速，一键选最快的。公共 Invidious 服务器越来越不稳定，建议在家里电脑上自建一个（`invidious` + `invidious-companion` + `postgres`），做法见 [v2.2 说明](docs/release-notes/v2.2.md)
@@ -75,6 +79,7 @@ Kotlin、Jetpack Compose、Media3 ExoPlayer、OkHttp、Coil、ZXing。数据只�
 
 | 版本 | 重点 |
 |---|---|
+| [v2.6](../../releases/tag/v2.6) | 省电：只在充电时下载、每次最多看多久 |
 | [v2.5](../../releases/tag/v2.5) | 去掉字幕功能 |
 | [v2.4](../../releases/tag/v2.4) | 修复带字幕的歌无法播放，改善播放卡顿 |
 | [v2.3](../../releases/tag/v2.3) | 修复下载变成一次只下一首 |

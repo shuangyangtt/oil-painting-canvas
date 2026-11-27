@@ -83,6 +83,8 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
     var overlayUntil by remember { mutableLongStateOf(System.currentTimeMillis() + OVERLAY_MS) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var skips by remember { mutableIntStateOf(0) }
+    // "rest a bit": the parents' watching limit was reached
+    var resting by remember { mutableStateOf(false) }
 
     val player = remember {
         // everything is on the tablet: a bigger buffer (20–60 s) smooths over a busy memory card
@@ -156,10 +158,23 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
     }
 
     LaunchedEffect(Unit) {
+        // a new watching session after a 30 minute break
+        if (System.currentTimeMillis() - state.lastWatch > 30 * 60_000L) state.watchMs = 0
+        var last = System.currentTimeMillis()
         while (true) {
             now = System.currentTimeMillis()
             position = player.currentPosition
             duration = player.duration.takeIf { it != MediaC.TIME_UNSET } ?: 0
+            if (player.isPlaying) {
+                state.watchMs += now - last
+                state.lastWatch = now
+            }
+            last = now
+            val limit = state.store.playLimitMin * 60_000L
+            if (limit > 0 && state.watchMs >= limit) {
+                resting = true
+                if (player.playWhenReady) player.pause()
+            }
             delay(250)
         }
     }
@@ -180,11 +195,12 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
                 PlayerView(it).apply {
                     useController = false
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    keepScreenOn = true
                     layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                     this.player = player
                 }
             },
+            // the screen stays on only while a song plays; paused or resting, it turns off as usual (saves battery)
+            update = { it.keepScreenOn = playing && !resting },
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -238,6 +254,11 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
                 }
             }
         }
+        if (resting) RestScreen(onContinue = {
+            state.watchMs = 0
+            resting = false
+            player.play()
+        })
     }
 }
 
@@ -287,5 +308,30 @@ private fun SkipIcon(modifier: Modifier, forward: Boolean) {
         val p = Path().apply { moveTo(x(0.12f), w * 0.15f); lineTo(x(0.72f), w * 0.5f); lineTo(x(0.12f), w * 0.85f); close() }
         drawPath(p, Color.White)
         drawRect(Color.White, Offset(minOf(x(0.74f), x(0.88f)), w * 0.15f), androidx.compose.ui.geometry.Size(w * 0.14f, w * 0.7f))
+    }
+}
+
+/** Watching time is up: a calm dark screen; parents hold the lock for 2 seconds to go on. */
+@Composable
+private fun RestScreen(onContinue: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xF0101030))
+            .clickable(remember { MutableInteractionSource() }, null) { },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            T("🌙", size = 96.sp)
+            Spacer(Modifier.height(16.dp))
+            T("看了好一会儿啦，休息一下吧", size = 32.sp, weight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            T("眼睛休息一下，平板也省省电", size = 20.sp, color = C.dim)
+        }
+        Row(Modifier.align(Alignment.BottomEnd).padding(28.dp), verticalAlignment = Alignment.CenterVertically) {
+            T("家长按住小锁 2 秒继续", size = 15.sp, color = C.faint)
+            Spacer(Modifier.width(12.dp))
+            ParentLock(onContinue)
+        }
     }
 }

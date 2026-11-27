@@ -44,6 +44,10 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
     lateinit var precacher: Precacher
     var lastOfflineIndex = 0
 
+    /** tablet: how long the child has been watching (for the rest reminder), and when the last song played */
+    var watchMs = 0L
+    var lastWatch = 0L
+
     /** Home screen position, kept while a video plays so the child comes back to the same card. */
     val homeList = LazyListState()
     var lastFocus by mutableStateOf<Pair<String, Int>?>(null)

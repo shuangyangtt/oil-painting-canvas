@@ -83,6 +83,15 @@ const val LOCAL_INSTANCE = "http://10.42.0.1:3000"
 
 fun hostOf(url: String) = url.substringAfter("://").substringBefore("/")
 
+object Power {
+    /** Whether the device is plugged in (sticky battery broadcast, no receiver needed). */
+    fun charging(context: android.content.Context): Boolean {
+        val i = context.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+            ?: return false
+        return i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0
+    }
+}
+
 object Net {
     /** Whether the projector has a network connection at all. */
     fun online(context: android.content.Context): Boolean = try {
@@ -242,6 +251,16 @@ class Store(context: Context) {
     var padLang: String
         get() = prefs.getString("padLang", null) ?: "zh"
         set(value) = prefs.edit().putString("padLang", value).apply()
+
+    /** tablet: download only while plugged in (downloading drains the battery) */
+    var chargingOnly: Boolean
+        get() = prefs.getBoolean("chargingOnly", true)
+        set(value) = prefs.edit().putBoolean("chargingOnly", value).apply()
+
+    /** tablet: minutes of watching before a rest (0 = no limit) */
+    var playLimitMin: Int
+        get() = prefs.getInt("playLimitMin", 0)
+        set(value) = prefs.edit().putInt("playLimitMin", value).apply()
 
     var autoPrecache: Boolean
         get() = prefs.getBoolean("autoPrecache", true)

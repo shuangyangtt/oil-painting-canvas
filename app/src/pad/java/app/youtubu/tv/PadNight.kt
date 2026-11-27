@@ -36,10 +36,7 @@ import kotlinx.coroutines.delay
 
 private const val IDLE_MS = 60_000L
 
-fun isCharging(context: Context): Boolean {
-    val i = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return false
-    return i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
-}
+fun isCharging(context: Context): Boolean = Power.charging(context)
 
 /** Still songs to fetch (not finished, not full, not switched off). */
 fun downloading(state: AppState): Boolean {

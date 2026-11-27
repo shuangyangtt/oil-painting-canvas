@@ -43,10 +43,10 @@ class DownloadService : Service() {
         else startForeground(1, first)
 
         wake = (getSystemService(POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "youtubu:download").apply { setReferenceCounted(false); acquire() }
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "youtubu:download").apply { setReferenceCounted(false) }
         @Suppress("DEPRECATION")
         wifi = (applicationContext.getSystemService(WIFI_SERVICE) as WifiManager)
-            .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "youtubu:download").apply { setReferenceCounted(false); acquire() }
+            .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "youtubu:download").apply { setReferenceCounted(false) }
 
         val state = Core.get(this)
         job = Core.scope.launch {
@@ -55,6 +55,15 @@ class DownloadService : Service() {
                 if (!state.store.autoPrecache) {
                     stopSelf()
                     return@launch
+                }
+                // battery: keep the CPU and WiFi awake only while songs are really being downloaded
+                // (not when everything is stored, the battery is not charging, no home WiFi or the server asks to wait)
+                if (state.precacher.status.startsWith("正在存")) {
+                    wake?.let { if (!it.isHeld) it.acquire(30 * 60_000L) }
+                    wifi?.let { if (!it.isHeld) it.acquire() }
+                } else {
+                    wake?.let { if (it.isHeld) it.release() }
+                    wifi?.let { if (it.isHeld) it.release() }
                 }
                 val count = state.offlineVideos.size
                 val text = "已存 $count 首 · ${formatSize(Media.cacheUsed())} / ${formatSize(Media.cacheLimit)}"

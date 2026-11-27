@@ -11,8 +11,8 @@ android {
         applicationId = "app.youtubu.tv"
         minSdk = 23
         targetSdk = 36
-        versionCode = 16
-        versionName = "2.5"
+        versionCode = 17
+        versionName = "2.6"
     }
 
     buildTypes {
