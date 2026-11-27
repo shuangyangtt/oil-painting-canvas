@@ -125,6 +125,15 @@ object Media {
         .setCacheKeyFactory(cacheKeys)
         .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
+    /**
+     * Stored songs only, never the network: if a piece is missing it fails at once (the player skips the song)
+     * instead of trying an expired address and hanging for seconds.
+     */
+    fun offlineSource(context: Context): CacheDataSource.Factory = CacheDataSource.Factory()
+        .setCache(cache(context))
+        .setCacheKeyFactory(cacheKeys)
+        .setCacheWriteDataSinkFactory(null)
+
     // downloads give up on a stuck connection after 15 seconds and try that piece again
     // own connection per request (HTTP/1.1): with HTTP/2 all parallel downloads would share one TCP connection
     private val downloadHttp by lazy {

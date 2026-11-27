@@ -126,6 +126,10 @@ object Offline {
     /** Forgets every "no subtitles" mark, so those songs are looked up again (after the rules changed). */
     fun retrySubtitles(context: Context) {
         dir(context).listFiles { f -> f.name.endsWith(".nosub") }?.forEach { it.delete() }
+        // empty subtitle files (header only, no lines) are removed too, so those songs are asked about again
+        dir(context).listFiles { f -> f.name.endsWith(".vtt") }?.forEach { f ->
+            if (!f.readText().contains("-->")) f.delete()
+        }
     }
 
     fun saveSubtitle(context: Context, videoId: String, vtt: String?) {
@@ -227,9 +231,10 @@ class Precacher(private val context: Context, private val state: AppState, priva
             // tablet: subtitles for songs stored before (or whose subtitles could not be fetched then)
             if (BuildConfig.PAD) launch {
                 // v2.2: subtitles also in Chinese / English when the channel's language has none
-                if (state.store.subtitleRules < 2) {
+                // v2.4: also drop empty subtitle files and ask again
+                if (state.store.subtitleRules < 3) {
                     Offline.retrySubtitles(context)
-                    state.store.subtitleRules = 2
+                    state.store.subtitleRules = 3
                 }
                 delay(20_000)
                 while (isActive) {
@@ -298,6 +303,8 @@ class Precacher(private val context: Context, private val state: AppState, priva
             return 3_000
         }
         pausing = false
+        // tablet: while a song plays, only 4 downloads go on, so the memory card is not too busy to read the video
+        if (BuildConfig.PAD && state.screen is Screen.Player && w >= PLAY_WORKERS) return 3_000
         if (!Net.online(context)) {
             status = "没有网络，等网络恢复后继续"
             return 30_000
@@ -549,6 +556,7 @@ class Precacher(private val context: Context, private val state: AppState, priva
 
 private const val CHUNK = 4L * 1024 * 1024
 private const val MANIFEST_GAP_MS = 700L
+private const val PLAY_WORKERS = 4
 
 fun formatSpeed(bytesPerSecond: Long): String = when {
     bytesPerSecond >= 1024 * 1024 -> "%.1f MB/s".format(bytesPerSecond / (1024.0 * 1024))

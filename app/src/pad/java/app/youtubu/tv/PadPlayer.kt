@@ -55,7 +55,9 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.dash.DefaultDashChunkSource
 import androidx.media3.exoplayer.source.MergingMediaSource
@@ -85,7 +87,11 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
     var subtitles by remember { mutableStateOf(state.store.subtitles) }
     var hasSubtitle by remember { mutableStateOf(false) }
 
-    val player = remember { ExoPlayer.Builder(context).build().apply { playWhenReady = true } }
+    val player = remember {
+        // everything is on the tablet: a bigger buffer (20–60 s) smooths over a busy memory card
+        val load = DefaultLoadControl.Builder().setBufferDurationsMs(20_000, 60_000, 1_000, 2_000).build()
+        ExoPlayer.Builder(context).setLoadControl(load).build().apply { playWhenReady = true }
+    }
 
     fun showOverlay() {
         overlayUntil = System.currentTimeMillis() + OVERLAY_MS
@@ -115,22 +121,24 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
             return@LaunchedEffect
         }
         skips = 0
-        val dash = DashMediaSource.Factory(
-            DefaultDashChunkSource.Factory(Media.dataSource(context)), DefaultDataSource.Factory(context),
-        ).createMediaSource(MediaItem.Builder().setUri(manifest).setMimeType(MimeTypes.APPLICATION_MPD).build())
-        // stored subtitles play along (shown or hidden with the 字 button)
+        // stored subtitles play along (shown or hidden with the 字 button); the media source factory parses
+        // the WebVTT file while loading (the old SingleSampleMediaSource way fails on Media3 1.11:
+        // "Legacy decoding is disabled, can't handle text/vtt samples")
         val sub = Offline.subtitleFile(context, video.id)
         hasSubtitle = sub != null
-        val source = if (sub == null) dash else MergingMediaSource(
-            dash,
-            SingleSampleMediaSource.Factory(DefaultDataSource.Factory(context)).createMediaSource(
-                MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(sub))
-                    .setMimeType(MimeTypes.TEXT_VTT)
-                    .setSelectionFlags(MediaC.SELECTION_FLAG_DEFAULT)
-                    .build(),
-                MediaC.TIME_UNSET,
-            ),
-        )
+        val item = MediaItem.Builder().setUri(manifest).setMimeType(MimeTypes.APPLICATION_MPD).apply {
+            if (sub != null) setSubtitleConfigurations(
+                listOf(
+                    MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(sub))
+                        .setMimeType(MimeTypes.TEXT_VTT)
+                        .setSelectionFlags(MediaC.SELECTION_FLAG_DEFAULT)
+                        .build(),
+                ),
+            )
+        }.build()
+        // local files (manifest, subtitles) directly, video data only from the stored cache
+        val source = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, Media.offlineSource(context)))
+            .createMediaSource(item)
         player.setMediaSource(source)
         player.prepare()
         player.play()
@@ -140,6 +148,10 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) go(1)
+                // a pause in the middle of a song: logged, so stutters can be traced
+                if (playbackState == Player.STATE_BUFFERING && player.currentPosition > 1_000) {
+                    Media.log("平板播放缓冲：「${videos[index].title.take(20)}」${formatTime(player.currentPosition / 1000)}")
+                }
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {

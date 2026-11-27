@@ -179,7 +179,8 @@ class Invidious(private val base: () -> String) {
             .filter { score(it) >= 0 }.maxByOrNull { score(it) } ?: return null
         val url = best.optString("url").ifEmpty { return null }
         val text = get(if (url.startsWith("/")) url else "/" + url.substringAfter("://").substringAfter("/"))
-        return text.takeIf { it.trimStart().startsWith("WEBVTT") }
+        // YouTube now often hands out a subtitle file with only the header and no lines: that counts as none
+        return text.takeIf { it.trimStart().startsWith("WEBVTT") && it.contains("-->") }
     }
 
     suspend fun channelInfo(channelId: String): Channel {
