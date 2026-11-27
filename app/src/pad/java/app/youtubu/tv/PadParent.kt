@@ -113,15 +113,6 @@ fun PadParent(state: AppState) {
                         size = 14.sp, color = C.faint,
                     )
                     Spacer(Modifier.height(14.dp))
-                    var subs by remember { mutableStateOf(state.store.subtitles) }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        T("播放时显示字幕（字幕会跟着歌一起下载）", Modifier.weight(1f), size = 18.sp)
-                        Switch(subs) {
-                            subs = it
-                            state.store.subtitles = it
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         T("自动下载", Modifier.weight(1f), size = 18.sp)
                         Switch(auto) {
@@ -233,7 +224,7 @@ fun PadParent(state: AppState) {
                     T("视频服务器", size = 20.sp, weight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
                     T(
-                        "歌单、播放清单和字幕都从这些 Invidious 服务器取。「家里电脑」是这台平板专用的私有服务器（平板连着电脑热点时可用，不会被别人封）。" +
+                        "歌单和播放清单都从这些 Invidious 服务器取。「家里电脑」是这台平板专用的私有服务器（平板连着电脑热点时可用，不会被别人封）。" +
                             "正在用的服务器连不上或封了我们时，会自动换到下一个；添加前会先测试能不能用。",
                         size = 14.sp, color = C.faint,
                     )

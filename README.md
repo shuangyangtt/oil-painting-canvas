@@ -31,12 +31,12 @@ A nursery-song player for toddlers: remote-friendly on projectors / Android TV, 
 
 <p align="center"><img src="docs/pad-player.jpg" width="720" alt="平板版播放页"></p>
 
-- **大按钮播放页**：返回、上一首、暂停、下一首、❤；「字」开关字幕（字幕跟着歌一起下载）
+- **大按钮播放页**：返回、上一首、暂停、下一首、❤
 - 进度条只能看不能拖，防止孩子乱点
 
 <p align="center"><img src="docs/pad-parent.png" width="720" alt="家长设置：下载"></p>
 
-- **家长设置**：按住右上角小锁 2 秒进入；能看下载进度和容量，开关字幕和自动下载，管理频道
+- **家长设置**：按住右上角小锁 2 秒进入；能看下载进度和容量，开关自动下载，管理频道
 - 华为平板熄屏会停止下载：插着电、开着应用即可，没人碰时会自动黑屏并调到最低亮度
 
 <p align="center"><img src="docs/pad-servers.png" width="720" alt="家长设置：视频服务器测速"></p>
@@ -75,6 +75,7 @@ Kotlin、Jetpack Compose、Media3 ExoPlayer、OkHttp、Coil、ZXing。数据只�
 
 | 版本 | 重点 |
 |---|---|
+| [v2.5](../../releases/tag/v2.5) | 去掉字幕功能 |
 | [v2.4](../../releases/tag/v2.4) | 修复带字幕的歌无法播放，改善播放卡顿 |
 | [v2.3](../../releases/tag/v2.3) | 修复下载变成一次只下一首 |
 | [v2.2](../../releases/tag/v2.2) | 自建服务器、测速；下载 58 MB/s |

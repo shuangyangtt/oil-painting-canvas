@@ -107,34 +107,15 @@ object Offline {
             gone.forEach { id ->
                 entries.remove(id)
                 File(dir(context), "$id.mpd").delete()
-                File(dir(context), "$id.vtt").delete()
-                File(dir(context), "$id.nosub").delete()
             }
             save(context)
         }
         return entries.values.map { it.video }.reversed()
     }
 
-    /** The song's stored subtitles, if it has any. */
-    fun subtitleFile(context: Context, videoId: String): File? =
-        File(dir(context), "$videoId.vtt").takeIf { it.exists() }
-
-    /** Whether subtitles were already looked for (found or not), so each song is asked about once. */
-    fun subtitleTried(context: Context, videoId: String): Boolean =
-        File(dir(context), "$videoId.vtt").exists() || File(dir(context), "$videoId.nosub").exists()
-
-    /** Forgets every "no subtitles" mark, so those songs are looked up again (after the rules changed). */
-    fun retrySubtitles(context: Context) {
-        dir(context).listFiles { f -> f.name.endsWith(".nosub") }?.forEach { it.delete() }
-        // empty subtitle files (header only, no lines) are removed too, so those songs are asked about again
-        dir(context).listFiles { f -> f.name.endsWith(".vtt") }?.forEach { f ->
-            if (!f.readText().contains("-->")) f.delete()
-        }
-    }
-
-    fun saveSubtitle(context: Context, videoId: String, vtt: String?) {
-        if (vtt != null) File(dir(context), "$videoId.vtt").writeText(vtt)
-        else File(dir(context), "$videoId.nosub").writeText("")
+    /** Subtitles were given up (YouTube restricts them too much): leftover files of older versions are removed. */
+    fun removeSubtitleFiles(context: Context) {
+        dir(context).listFiles { f -> f.name.endsWith(".vtt") || f.name.endsWith(".nosub") }?.forEach { it.delete() }
     }
 
     @Synchronized
@@ -228,32 +209,7 @@ class Precacher(private val context: Context, private val state: AppState, priva
                     delay(60_000)
                 }
             }
-            // tablet: subtitles for songs stored before (or whose subtitles could not be fetched then)
-            if (BuildConfig.PAD) launch {
-                // v2.2: subtitles also in Chinese / English when the channel's language has none
-                // v2.4: also drop empty subtitle files and ask again
-                if (state.store.subtitleRules < 3) {
-                    Offline.retrySubtitles(context)
-                    state.store.subtitleRules = 3
-                }
-                delay(20_000)
-                while (isActive) {
-                    val todo = if (holdUntil > System.currentTimeMillis() || !Net.unmetered(context) || !state.store.autoPrecache) null
-                    else Offline.videos(context).firstOrNull { !Offline.subtitleTried(context, it.id) }
-                    if (todo == null) {
-                        delay(60_000)
-                        continue
-                    }
-                    try {
-                        fetchSubtitle(todo)
-                    } catch (e: Exception) {
-                        if (e is kotlinx.coroutines.CancellationException) throw e
-                        if (serverBusy(e)) holdFor(e)
-                        else Offline.saveSubtitle(context, todo.id, null)
-                        delay(10_000)
-                    }
-                }
-            }
+            if (BuildConfig.PAD) Offline.removeSubtitleFiles(context)
             repeat(workers) { w ->
                 launch {
                     delay(w * if (BuildConfig.PAD) 300L else 1_500L)
@@ -438,14 +394,6 @@ class Precacher(private val context: Context, private val state: AppState, priva
             videoRep.setTag + "\n" + videoRep.xml + "\n</AdaptationSet>\n" +
             audioRep.setTag + "\n" + audioRep.xml + "\n</AdaptationSet>\n</Period>\n</MPD>\n"
         Offline.add(context, video, manifest, keys)
-        if (BuildConfig.PAD) {
-            try {
-                fetchSubtitle(video)
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                if (serverBusy(e)) holdFor(e) // the song is stored; its subtitles come later
-            }
-        }
         // the cover picture too, so the offline page looks right without internet
         SingletonImageLoader.get(context).enqueue(ImageRequest.Builder(context).data(video.thumbnail).build())
         Media.log("离线存好「${video.title.take(24)}」${videoRep.height}p，${formatSize(keys.sumOf { it.second })}")
@@ -471,14 +419,6 @@ class Precacher(private val context: Context, private val state: AppState, priva
     }
 
     private suspend fun manifestText(videoId: String): String = gated { Media.fetchManifestText(state.api, videoId) }
-
-    /** Fetches and stores the song's subtitles (in its channel's language), once per song. */
-    private suspend fun fetchSubtitle(video: Video) {
-        if (Offline.subtitleTried(context, video.id)) return
-        val lang = state.channels.firstOrNull { it.id == video.authorId }?.lang ?: guessLang(video.author)
-        val vtt = gated { state.api.subtitle(video.id, lang) }
-        Offline.saveSubtitle(context, video.id, vtt)
-    }
 
     /** Server overloaded or blocking us: every worker waits (1 minute, then longer each time). */
     private fun holdFor(e: Exception) {

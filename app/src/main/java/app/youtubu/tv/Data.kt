@@ -150,39 +150,6 @@ class Invidious(private val base: () -> String) {
             .map { it.toVideo() }
     }
 
-    /**
-     * Subtitles (WebVTT) of a video in the channel's language: hand-made ones first, auto-generated otherwise.
-     * Null when the video has none in that language.
-     */
-    suspend fun subtitle(videoId: String, lang: String): String? {
-        val json = JSONObject(get("/api/v1/captions/$videoId"))
-        val arr = json.optJSONArray("captions") ?: return null
-        // the channel's own language first, else Chinese, else English
-        val zh = listOf("zh-hans", "zh-cn", "zh", "zh-hant", "zh-tw", "zh-hk")
-        val groups = when (lang) {
-            "zh" -> listOf(zh, listOf("en"))
-            "de" -> listOf(listOf("de"), zh, listOf("en"))
-            else -> listOf(listOf("en"), zh)
-        }
-        val wanted = groups.flatten()
-        fun score(o: JSONObject): Int {
-            val code = o.optString("languageCode", o.optString("language_code")).lowercase()
-            val i = wanted.indexOfFirst { code == it || code.startsWith("$it-") }
-            if (i < 0) return -1
-            val group = groups.indexOfFirst { g -> g.any { code == it || code.startsWith("$it-") } }
-            val label = o.optString("label")
-            val auto = label.contains("auto", ignoreCase = true) || label.contains("自动")
-            // a better language always wins; within a language hand-made before auto-generated
-            return (groups.size - group) * 1000 + (if (auto) 0 else 100) + (wanted.size - i)
-        }
-        val best = (0 until arr.length()).map { arr.getJSONObject(it) }
-            .filter { score(it) >= 0 }.maxByOrNull { score(it) } ?: return null
-        val url = best.optString("url").ifEmpty { return null }
-        val text = get(if (url.startsWith("/")) url else "/" + url.substringAfter("://").substringAfter("/"))
-        // YouTube now often hands out a subtitle file with only the header and no lines: that counts as none
-        return text.takeIf { it.trimStart().startsWith("WEBVTT") && it.contains("-->") }
-    }
-
     suspend fun channelInfo(channelId: String): Channel {
         val json = JSONObject(get("/api/v1/channels/$channelId"))
         return Channel(json.getString("authorId"), json.getString("author"), avatarFrom(json))
@@ -275,14 +242,6 @@ class Store(context: Context) {
     var padLang: String
         get() = prefs.getString("padLang", null) ?: "zh"
         set(value) = prefs.edit().putString("padLang", value).apply()
-
-    var subtitleRules: Int
-        get() = prefs.getInt("subtitleRules", 1)
-        set(value) = prefs.edit().putInt("subtitleRules", value).apply()
-
-    var subtitles: Boolean
-        get() = prefs.getBoolean("subtitles", true)
-        set(value) = prefs.edit().putBoolean("subtitles", value).apply()
 
     var autoPrecache: Boolean
         get() = prefs.getBoolean("autoPrecache", true)
