@@ -172,7 +172,61 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
 
     fun setInstance(url: String) {
         store.instance = url
+        currentInstance = store.instance
         refreshAll()
+    }
+
+    // ---- several servers: switch to the next one when the current one blocks us or is down ----
+
+    /** the server in use (for the settings page) */
+    var currentInstance by mutableStateOf(store.instance)
+        private set
+    var instances by mutableStateOf(store.instances)
+        private set
+    private val failedAt = mutableMapOf<String, Long>()
+    private var lastSwitch = 0L
+
+    /** Switch by hand (settings). Song lists and stored songs stay as they are. */
+    fun useInstance(url: String) {
+        store.instance = url
+        currentInstance = store.instance
+        if (url !in instances) {
+            instances = instances + url
+            store.instances = instances
+        }
+    }
+
+    fun addInstance(url: String) {
+        val clean = url.trim().trimEnd('/')
+        if (clean in instances) return
+        instances = instances + clean
+        store.instances = instances
+    }
+
+    fun removeInstance(url: String) {
+        if (instances.size <= 1) return
+        instances = instances - url
+        store.instances = instances
+        if (currentInstance == url) useInstance(instances.first())
+    }
+
+    /**
+     * The current server failed (blocked, overloaded, down). Moves on to the next server that has not failed
+     * in the last 10 minutes. Returns false when there is none (then everybody waits instead).
+     */
+    @Synchronized
+    fun failover(reason: String?): Boolean {
+        val now = System.currentTimeMillis()
+        // errors from requests that were still running on the old server right after a switch
+        if (now - lastSwitch < 30_000) return true
+        failedAt[store.instance] = now
+        val next = store.instances.firstOrNull { it != store.instance && now - (failedAt[it] ?: 0) > 10 * 60_000 }
+            ?: return false
+        Media.log("服务器 ${hostOf(store.instance)} 出问题（${reason?.take(50)}），自动换到 ${hostOf(next)}")
+        lastSwitch = now
+        store.instance = next
+        scope.launch { currentInstance = next }
+        return true
     }
 
     fun refreshAll() {

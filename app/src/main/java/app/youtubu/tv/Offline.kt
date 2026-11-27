@@ -454,6 +454,8 @@ class Precacher(private val context: Context, private val state: AppState, priva
 
     /** Server overloaded or blocking us: every worker waits (1 minute, then longer each time). */
     private fun holdFor(e: Exception) {
+        // another server first; waiting only when every server has problems
+        if (state.failover(e.message)) return
         synchronized(lock) {
             if (System.currentTimeMillis() >= holdUntil) {
                 holdUntil = System.currentTimeMillis() + holdStep

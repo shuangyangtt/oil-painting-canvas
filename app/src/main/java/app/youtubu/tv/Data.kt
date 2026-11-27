@@ -72,6 +72,14 @@ val DEFAULT_CHANNELS = listOf(
 
 const val DEFAULT_INSTANCE = "https://yt.chocolatemoo53.com"
 
+/**
+ * Servers tried in turn when one blocks us or is down. (2026-11-27: the only public Invidious server
+ * that still serves videos; parents can add more in the settings, each one is tested first.)
+ */
+val DEFAULT_INSTANCES = listOf(DEFAULT_INSTANCE)
+
+fun hostOf(url: String) = url.substringAfter("://").substringBefore("/")
+
 object Net {
     /** Whether the projector has a network connection at all. */
     fun online(context: android.content.Context): Boolean = try {
@@ -244,6 +252,15 @@ class Store(context: Context) {
     var instance: String
         get() = prefs.getString("instance", null) ?: DEFAULT_INSTANCE
         set(value) = prefs.edit().putString("instance", value.trim().trimEnd('/')).apply()
+
+    /** All servers to use, in order (the current one is [instance]). */
+    var instances: List<String>
+        get() {
+            val raw = prefs.getString("instances", null) ?: return (listOf(instance) + DEFAULT_INSTANCES).distinct()
+            val arr = JSONArray(raw)
+            return (0 until arr.length()).map { arr.getString(it) }.ifEmpty { DEFAULT_INSTANCES }
+        }
+        set(value) = prefs.edit().putString("instances", JSONArray(value.distinct()).toString()).apply()
 
     /** tablet: the language shown on the picker (zh / en / de) */
     var padLang: String

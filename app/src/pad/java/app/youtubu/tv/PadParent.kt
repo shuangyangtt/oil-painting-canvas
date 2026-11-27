@@ -58,6 +58,8 @@ fun PadParent(state: AppState) {
     var confirmRemove by remember { mutableStateOf<String?>(null) }
     var input by remember { mutableStateOf("") }
     var adding by remember { mutableStateOf(false) }
+    var server by remember { mutableStateOf("") }
+    var testing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -224,9 +226,70 @@ fun PadParent(state: AppState) {
             }
             item {
                 Card {
+                    T("视频服务器", size = 20.sp, weight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    T(
+                        "歌单、播放清单和字幕都从这些 Invidious 服务器取。正在用的服务器连不上或封了我们时，会自动换到下一个；" +
+                            "添加前会先测试能不能用。",
+                        size = 14.sp, color = C.faint,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    for (url in state.instances) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val current = url == state.currentInstance
+                            T(hostOf(url), Modifier.weight(1f), size = 18.sp, color = if (current) C.yellow else C.text, maxLines = 1)
+                            if (current) {
+                                T("正在用", size = 15.sp, color = C.yellow, weight = FontWeight.Bold)
+                            } else {
+                                Btn("用这个", C.card, C.text) { state.useInstance(url) }
+                            }
+                            if (state.instances.size > 1) {
+                                Spacer(Modifier.width(10.dp))
+                                Btn("删除", C.card, C.text) { state.removeInstance(url) }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BasicTextField(
+                            value = server,
+                            onValueChange = { server = it },
+                            singleLine = true,
+                            textStyle = TextStyle(color = C.text, fontSize = 18.sp),
+                            cursorBrush = SolidColor(C.yellow),
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(C.card)
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            decorationBox = { inner ->
+                                if (server.isEmpty()) T("服务器地址，例如 https://example.com", size = 18.sp, color = C.faint)
+                                inner()
+                            },
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Btn(if (testing) "测试中…" else "测试并添加", C.yellow, C.bg) {
+                            var url = server.trim().trimEnd('/')
+                            if (url.isEmpty() || testing) return@Btn
+                            if (!url.startsWith("http")) url = "https://$url"
+                            testing = true
+                            scope.launch {
+                                val problem = testServer(url, state.offlineVideos.firstOrNull()?.id ?: "yCjJyiqpAuU")
+                                if (problem == null) {
+                                    state.addInstance(url)
+                                    server = ""
+                                    state.showToast("可以用，已添加：${hostOf(url)}")
+                                } else {
+                                    state.showToast("这个服务器不能用：$problem")
+                                }
+                                testing = false
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Card {
                     T("关于", size = 20.sp, weight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    T("油图布儿歌 平板版 ${BuildConfig.VERSION_NAME} · 视频来源 ${state.store.instance}", size = 14.sp, color = C.faint)
+                    T("油图布儿歌 平板版 ${BuildConfig.VERSION_NAME} · 视频来源 ${hostOf(state.currentInstance)}", size = 14.sp, color = C.faint)
                 }
             }
         }
@@ -258,4 +321,21 @@ private fun Switch(on: Boolean, onChange: (Boolean) -> Unit) {
             .padding(4.dp),
         contentAlignment = if (on) Alignment.CenterEnd else Alignment.CenterStart,
     ) { Box(Modifier.size(28.dp).clip(CircleShape).background(Color.White)) }
+}
+
+/** Null when the server can give a channel's songs and a playable manifest, else what went wrong. */
+private suspend fun testServer(url: String, videoId: String): String? = withContext(Dispatchers.IO) {
+    val api = Invidious { url }
+    try {
+        api.channelInfo("UCLsooMJoIpl_7ux2jvdPB-Q")
+    } catch (e: Exception) {
+        return@withContext "取不到频道（${e.message}）"
+    }
+    try {
+        val text = Media.fetchManifestText(api, videoId)
+        if (!text.contains("<Representation")) return@withContext "播放清单是空的"
+    } catch (e: Exception) {
+        return@withContext "取不到播放清单（${e.message}）"
+    }
+    null
 }
