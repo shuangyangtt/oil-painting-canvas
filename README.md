@@ -75,6 +75,7 @@ Kotlin、Jetpack Compose、Media3 ExoPlayer、OkHttp、Coil、ZXing。数据只�
 
 | 版本 | 重点 |
 |---|---|
+| [v2.4](../../releases/tag/v2.4) | 修复带字幕的歌无法播放，改善播放卡顿 |
 | [v2.3](../../releases/tag/v2.3) | 修复下载变成一次只下一首 |
 | [v2.2](../../releases/tag/v2.2) | 自建服务器、测速；下载 58 MB/s |
 | [v2.1](../../releases/tag/v2.1) | 多服务器自动切换 |
