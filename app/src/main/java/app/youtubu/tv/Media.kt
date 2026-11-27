@@ -141,6 +141,53 @@ object Media {
         .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(downloadHttp))
         .setCacheKeyFactory(cacheKeys)
 
+    class Speed(val pingMs: Long, val bytesPerSecond: Long, val problem: String?)
+
+    /**
+     * Speed test of one server: how fast it answers (a channel's info) and how fast a song downloads from it
+     * (manifest of [videoId], then the first 4 MB of its picture). Three requests, so it is gentle.
+     */
+    suspend fun speedTest(url: String, videoId: String): Speed = withContext(Dispatchers.IO) {
+        val api = Invidious { url }
+        val t0 = System.currentTimeMillis()
+        try {
+            api.channelInfo("UCLsooMJoIpl_7ux2jvdPB-Q")
+        } catch (e: Exception) {
+            return@withContext Speed(0, 0, "连不上（${e.message?.take(40)}）")
+        }
+        val ping = System.currentTimeMillis() - t0
+        val text = try {
+            fetchManifestText(api, videoId)
+        } catch (e: Exception) {
+            return@withContext Speed(ping, 0, "取不到播放清单（${e.message?.take(40)}）")
+        }
+        val rep = Regex("<Representation\\b[^>]*>.*?</Representation>", RegexOption.DOT_MATCHES_ALL).findAll(text)
+            .map { it.value }.firstOrNull { it.contains("avc1") && it.contains("<BaseURL>") }
+            ?: return@withContext Speed(ping, 0, "播放清单是空的")
+        val stream = Regex("<BaseURL>(.*?)</BaseURL>").find(rep)!!.groupValues[1].replace("&amp;", "&")
+        val t1 = System.currentTimeMillis()
+        val bytes = try {
+            downloadHttp.newCall(Request.Builder().url(stream).header("Range", "bytes=0-4194303").build()).execute().use { r ->
+                if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
+                r.body.source().let { src ->
+                    var n = 0L
+                    val buf = okio.Buffer()
+                    while (true) {
+                        val read = src.read(buf, 65536)
+                        if (read < 0) break
+                        n += read
+                        buf.clear()
+                    }
+                    n
+                }
+            }
+        } catch (e: Exception) {
+            return@withContext Speed(ping, 0, "下载失败（${e.message?.take(40)}）")
+        }
+        val ms = (System.currentTimeMillis() - t1).coerceAtLeast(1)
+        Speed(ping, bytes * 1000 / ms, null)
+    }
+
     /**
      * The DASH manifest of a video as a local file. It is kept for 5 hours (the stream URLs in it stay
      * valid that long), so a song played again starts without asking Invidious, straight from the cache.

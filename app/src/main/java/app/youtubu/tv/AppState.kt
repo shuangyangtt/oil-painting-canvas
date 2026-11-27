@@ -219,7 +219,12 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
         val now = System.currentTimeMillis()
         // errors from requests that were still running on the old server right after a switch
         if (now - lastSwitch < 30_000) return true
-        failedAt[store.instance] = now
+        // an error that names another server (an older request) says nothing about the current one
+        val current = store.instance
+        if (reason != null && !reason.contains(hostOf(current)) &&
+            store.instances.any { it != current && reason.contains(hostOf(it).substringBefore(":")) }
+        ) return true
+        failedAt[current] = now
         val next = store.instances.firstOrNull { it != store.instance && now - (failedAt[it] ?: 0) > 10 * 60_000 }
             ?: return false
         Media.log("服务器 ${hostOf(store.instance)} 出问题（${reason?.take(50)}），自动换到 ${hostOf(next)}")

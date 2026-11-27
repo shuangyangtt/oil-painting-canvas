@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!-- trust user-installed CAs too, old projectors often have outdated root stores -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- http allowed: the private Invidious server on the home laptop (hotspot 10.42.0.1) has no https -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
             <certificates src="user" />

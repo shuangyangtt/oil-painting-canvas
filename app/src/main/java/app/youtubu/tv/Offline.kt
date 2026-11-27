@@ -123,6 +123,11 @@ object Offline {
     fun subtitleTried(context: Context, videoId: String): Boolean =
         File(dir(context), "$videoId.vtt").exists() || File(dir(context), "$videoId.nosub").exists()
 
+    /** Forgets every "no subtitles" mark, so those songs are looked up again (after the rules changed). */
+    fun retrySubtitles(context: Context) {
+        dir(context).listFiles { f -> f.name.endsWith(".nosub") }?.forEach { it.delete() }
+    }
+
     fun saveSubtitle(context: Context, videoId: String, vtt: String?) {
         if (vtt != null) File(dir(context), "$videoId.vtt").writeText(vtt)
         else File(dir(context), "$videoId.nosub").writeText("")
@@ -187,6 +192,7 @@ class Precacher(private val context: Context, private val state: AppState, priva
     // the Invidious server blocks an IP that asks for too many manifests at once, so manifests are fetched
     // one at a time with a gap (the video data itself comes from its media servers, in parallel)
     private val manifestGate = Semaphore(1)
+    private val localGate = Semaphore(8)
     @Volatile
     private var lastManifest = 0L
     /** all workers wait until then when the server says "too many requests" or cannot be reached */
@@ -220,6 +226,11 @@ class Precacher(private val context: Context, private val state: AppState, priva
             }
             // tablet: subtitles for songs stored before (or whose subtitles could not be fetched then)
             if (BuildConfig.PAD) launch {
+                // v2.2: subtitles also in Chinese / English when the channel's language has none
+                if (state.store.subtitleRules < 2) {
+                    Offline.retrySubtitles(context)
+                    state.store.subtitleRules = 2
+                }
                 delay(20_000)
                 while (isActive) {
                     val todo = if (holdUntil > System.currentTimeMillis() || !Net.unmetered(context) || !state.store.autoPrecache) null
@@ -431,14 +442,20 @@ class Precacher(private val context: Context, private val state: AppState, priva
         withContext(Dispatchers.Main) { state.offlineVideos = list }
     }
 
-    /** Every request to the main Invidious server goes through here: one at a time, with a gap. */
-    private suspend fun <T> gated(block: suspend () -> T): T = manifestGate.withPermit {
-        val wait = lastManifest + MANIFEST_GAP_MS - System.currentTimeMillis()
-        if (wait > 0) delay(wait)
-        try {
-            block()
-        } finally {
-            lastManifest = System.currentTimeMillis()
+    /**
+     * Every request to the Invidious server goes through here. A public server: one at a time, with a gap
+     * (it blocks clients that ask too fast). Our own server on the home laptop: up to 8 at once.
+     */
+    private suspend fun <T> gated(block: suspend () -> T): T {
+        if (state.store.instance == LOCAL_INSTANCE) return localGate.withPermit { block() }
+        return manifestGate.withPermit {
+            val wait = lastManifest + MANIFEST_GAP_MS - System.currentTimeMillis()
+            if (wait > 0) delay(wait)
+            try {
+                block()
+            } finally {
+                lastManifest = System.currentTimeMillis()
+            }
         }
     }
 

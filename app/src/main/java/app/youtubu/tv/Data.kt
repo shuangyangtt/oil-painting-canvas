@@ -76,7 +76,10 @@ const val DEFAULT_INSTANCE = "https://yt.chocolatemoo53.com"
  * Servers tried in turn when one blocks us or is down. (2026-11-27: the only public Invidious server
  * that still serves videos; parents can add more in the settings, each one is tested first.)
  */
-val DEFAULT_INSTANCES = listOf(DEFAULT_INSTANCE)
+val DEFAULT_INSTANCES = if (BuildConfig.PAD) listOf(LOCAL_INSTANCE, DEFAULT_INSTANCE) else listOf(DEFAULT_INSTANCE)
+
+/** Our own Invidious server on the home laptop, reached through its WiFi hotspot (only for us, cannot block us). */
+const val LOCAL_INSTANCE = "http://10.42.0.1:3000"
 
 fun hostOf(url: String) = url.substringAfter("://").substringBefore("/")
 
@@ -154,18 +157,23 @@ class Invidious(private val base: () -> String) {
     suspend fun subtitle(videoId: String, lang: String): String? {
         val json = JSONObject(get("/api/v1/captions/$videoId"))
         val arr = json.optJSONArray("captions") ?: return null
-        val wanted = when (lang) {
-            "zh" -> listOf("zh-hans", "zh-cn", "zh", "zh-hant", "zh-tw", "zh-hk")
-            "de" -> listOf("de")
-            else -> listOf("en")
+        // the channel's own language first, else Chinese, else English
+        val zh = listOf("zh-hans", "zh-cn", "zh", "zh-hant", "zh-tw", "zh-hk")
+        val groups = when (lang) {
+            "zh" -> listOf(zh, listOf("en"))
+            "de" -> listOf(listOf("de"), zh, listOf("en"))
+            else -> listOf(listOf("en"), zh)
         }
+        val wanted = groups.flatten()
         fun score(o: JSONObject): Int {
             val code = o.optString("languageCode", o.optString("language_code")).lowercase()
             val i = wanted.indexOfFirst { code == it || code.startsWith("$it-") }
             if (i < 0) return -1
+            val group = groups.indexOfFirst { g -> g.any { code == it || code.startsWith("$it-") } }
             val label = o.optString("label")
             val auto = label.contains("auto", ignoreCase = true) || label.contains("自动")
-            return (if (auto) 0 else 100) + (wanted.size - i)
+            // a better language always wins; within a language hand-made before auto-generated
+            return (groups.size - group) * 1000 + (if (auto) 0 else 100) + (wanted.size - i)
         }
         val best = (0 until arr.length()).map { arr.getJSONObject(it) }
             .filter { score(it) >= 0 }.maxByOrNull { score(it) } ?: return null
@@ -250,7 +258,7 @@ class Store(context: Context) {
     private val cacheDir = File(context.filesDir, "rows").apply { mkdirs() }
 
     var instance: String
-        get() = prefs.getString("instance", null) ?: DEFAULT_INSTANCE
+        get() = prefs.getString("instance", null) ?: DEFAULT_INSTANCES.first()
         set(value) = prefs.edit().putString("instance", value.trim().trimEnd('/')).apply()
 
     /** All servers to use, in order (the current one is [instance]). */
@@ -266,6 +274,10 @@ class Store(context: Context) {
     var padLang: String
         get() = prefs.getString("padLang", null) ?: "zh"
         set(value) = prefs.edit().putString("padLang", value).apply()
+
+    var subtitleRules: Int
+        get() = prefs.getInt("subtitleRules", 1)
+        set(value) = prefs.edit().putInt("subtitleRules", value).apply()
 
     var subtitles: Boolean
         get() = prefs.getBoolean("subtitles", true)

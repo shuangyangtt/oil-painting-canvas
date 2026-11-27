@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,6 +61,9 @@ fun PadParent(state: AppState) {
     var adding by remember { mutableStateOf(false) }
     var server by remember { mutableStateOf("") }
     var testing by remember { mutableStateOf(false) }
+    val speeds = remember { mutableStateMapOf<String, String>() }
+    val speedValue = remember { mutableStateMapOf<String, Long>() }
+    var testingAll by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -229,15 +233,46 @@ fun PadParent(state: AppState) {
                     T("视频服务器", size = 20.sp, weight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
                     T(
-                        "歌单、播放清单和字幕都从这些 Invidious 服务器取。正在用的服务器连不上或封了我们时，会自动换到下一个；" +
-                            "添加前会先测试能不能用。",
+                        "歌单、播放清单和字幕都从这些 Invidious 服务器取。「家里电脑」是这台平板专用的私有服务器（平板连着电脑热点时可用，不会被别人封）。" +
+                            "正在用的服务器连不上或封了我们时，会自动换到下一个；添加前会先测试能不能用。",
                         size = 14.sp, color = C.faint,
                     )
                     Spacer(Modifier.height(10.dp))
+                    fun testOne(url: String) = scope.launch {
+                        speeds[url] = "测速中…"
+                        val r = Media.speedTest(url, state.offlineVideos.firstOrNull()?.id ?: "yCjJyiqpAuU")
+                        speeds[url] = r.problem ?: "响应 ${r.pingMs} 毫秒 · 下载 ${formatSpeed(r.bytesPerSecond)}"
+                        if (r.problem == null) speedValue[url] = r.bytesPerSecond else speedValue.remove(url)
+                    }
+                    Btn(if (testingAll) "正在测速…" else "全部测速，选最快的", C.yellow, C.bg) {
+                        if (testingAll) return@Btn
+                        testingAll = true
+                        scope.launch {
+                            // one after another: never several heavy requests at the same time
+                            for (url in state.instances) testOne(url).join()
+                            val best = speedValue.filterKeys { it in state.instances }.maxByOrNull { it.value }?.key
+                            if (best != null) {
+                                state.useInstance(best)
+                                state.showToast("已选最快的：${hostOf(best)}")
+                            } else {
+                                state.showToast("没有能用的服务器")
+                            }
+                            testingAll = false
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                     for (url in state.instances) {
                         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             val current = url == state.currentInstance
-                            T(hostOf(url), Modifier.weight(1f), size = 18.sp, color = if (current) C.yellow else C.text, maxLines = 1)
+                            Column(Modifier.weight(1f)) {
+                                T(
+                                    (if (url == LOCAL_INSTANCE) "家里电脑（私有） " else "") + hostOf(url),
+                                    size = 18.sp, color = if (current) C.yellow else C.text, maxLines = 1,
+                                )
+                                speeds[url]?.let { T(it, size = 14.sp, color = C.faint, maxLines = 1) }
+                            }
+                            Btn("测速", C.card, C.text) { testOne(url) }
+                            Spacer(Modifier.width(10.dp))
                             if (current) {
                                 T("正在用", size = 15.sp, color = C.yellow, weight = FontWeight.Bold)
                             } else {
