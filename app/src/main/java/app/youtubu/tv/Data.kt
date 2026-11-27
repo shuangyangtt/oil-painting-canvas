@@ -2,6 +2,7 @@ package app.youtubu.tv
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -12,7 +13,15 @@ import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
-data class Channel(val id: String, val name: String, val avatar: String = "")
+/** lang: "zh" 中文, "en" English, "de" Deutsch (the tablet shows one language at a time) */
+data class Channel(val id: String, val name: String, val avatar: String = "", val lang: String = "")
+
+/** Language of a channel added by the parents, from its name (they can change it in the settings). */
+fun guessLang(name: String): String = when {
+    name.any { it in '\u4e00'..'\u9fff' } -> "zh"
+    Regex("(?i)[äöüß]|kinderlied|lieder|deutsch|kika").containsMatchIn(name) -> "de"
+    else -> "en"
+}
 
 data class Video(
     val id: String,
@@ -26,27 +35,40 @@ data class Video(
     val thumbnail get() = "https://i.ytimg.com/vi/$id/hqdefault.jpg"
 }
 
+/** Official Chinese nursery song channels (checked on YouTube on 2026-11-27, impostor copies left out). */
+val ZH_CHANNELS = listOf(
+    Channel("UCttafJi4SCirZhlxsxISbyA", "宝宝巴士 BabyBus", lang = "zh"),
+    Channel("UC8iy9jYvsQsqgWMO8SSwxWw", "碰碰狐 Pinkfong 中文", lang = "zh"),
+    Channel("UChSBNNndmzkTIcFRSvwrFMw", "Bebefinn 简体中文", lang = "zh"),
+    Channel("UCg7ABWP7MUYBWkY0vBtVJwA", "贝乐虎儿歌", lang = "zh"),
+    Channel("UC9oCMwabf-4jTTC3GN4hjew", "CoComelon 中文版", lang = "zh"),
+    Channel("UCkSi-KaAqBeoztV5BELgHyA", "儿歌多多", lang = "zh"),
+    Channel("UC6N6gvX6PUEfZgFkxA3sxlg", "小宝贝布姆 Little Baby Bum", lang = "zh"),
+    Channel("UCIacHs59yBKg4BZ2am_BNSg", "小伊普童谣", lang = "zh"),
+)
+
 /** Verified English and German nursery song channels (checked through Invidious on 2026-11-15). */
 val DEFAULT_CHANNELS = listOf(
-    Channel("UCLsooMJoIpl_7ux2jvdPB-Q", "Super Simple Songs"),
-    Channel("UCooPit08nD5lkSjgc5Gjxqw", "Sing mit mir – Kinderlieder"),
-    Channel("UCcdwLMPsaU2ezNSJU1nFoBQ", "Pinkfong Baby Shark"),
-    Channel("UCctbi1Jw2jiVhj2ogdwiFdA", "Kinderlieder zum Mitsingen und Bewegen"),
-    Channel("UCKAqou7V9FAWXpZd9xtOg3Q", "Little Baby Bum"),
-    Channel("UC-OEheLPb_kpsbEhfvUgYkg", "Hurra Kinderlieder"),
-    Channel("UCbCmjCuTUZos6Inko4u57UQ", "CoComelon"),
-    Channel("UCD4S7zLdV660OAIB-CEJvhQ", "CoComelon Deutsch"),
-    Channel("UCJkWoS4RsldA1coEIot5yDA", "Mother Goose Club"),
-    Channel("UCGh8WvsmJTI9m8eh6g2bwvQ", "Pinkfong, Baby Hai! (Deutsch)"),
-    Channel("UC56cowXhoqRWHeqfSJkIQaA", "Bounce Patrol"),
-    Channel("UCHAQPpmpJqY50V046kQ63Mw", "Little Baby Bum Deutsch"),
-    Channel("UC6zhI71atP7YLoZyIyCIGNw", "Dave and Ava"),
-    Channel("UC91MMRlxNMvkxhU4JDJdcuQ", "Lichterkinder"),
-    Channel("UCtf9cFBJkHVAf2qMqF01xYg", "Hey Bear Sensory"),
-    Channel("UC7HM-Pm3mLzZBvhJKFnL6oA", "Volker Rosin"),
-    Channel("UCafNlR92d6W0e9ow_QHRx1w", "Rolf Zuckowski"),
-    Channel("UCv4Pvhg1LY8U9E-XF8hn6WA", "KiKAninchen"),
-)
+    Channel("UCLsooMJoIpl_7ux2jvdPB-Q", "Super Simple Songs", lang = "en"),
+    Channel("UCooPit08nD5lkSjgc5Gjxqw", "Sing mit mir – Kinderlieder", lang = "de"),
+    Channel("UCcdwLMPsaU2ezNSJU1nFoBQ", "Pinkfong Baby Shark", lang = "en"),
+    Channel("UCctbi1Jw2jiVhj2ogdwiFdA", "Kinderlieder zum Mitsingen und Bewegen", lang = "de"),
+    Channel("UCKAqou7V9FAWXpZd9xtOg3Q", "Little Baby Bum", lang = "en"),
+    Channel("UC-OEheLPb_kpsbEhfvUgYkg", "Hurra Kinderlieder", lang = "de"),
+    Channel("UCbCmjCuTUZos6Inko4u57UQ", "CoComelon", lang = "en"),
+    Channel("UCD4S7zLdV660OAIB-CEJvhQ", "CoComelon Deutsch", lang = "de"),
+    Channel("UCJkWoS4RsldA1coEIot5yDA", "Mother Goose Club", lang = "en"),
+    Channel("UCGh8WvsmJTI9m8eh6g2bwvQ", "Pinkfong, Baby Hai! (Deutsch)", lang = "de"),
+    Channel("UC56cowXhoqRWHeqfSJkIQaA", "Bounce Patrol", lang = "en"),
+    Channel("UCHAQPpmpJqY50V046kQ63Mw", "Little Baby Bum Deutsch", lang = "de"),
+    Channel("UC6zhI71atP7YLoZyIyCIGNw", "Dave and Ava", lang = "en"),
+    Channel("UC91MMRlxNMvkxhU4JDJdcuQ", "Lichterkinder", lang = "de"),
+    Channel("UCtf9cFBJkHVAf2qMqF01xYg", "Hey Bear Sensory", lang = "en"),
+    Channel("UC7HM-Pm3mLzZBvhJKFnL6oA", "Volker Rosin", lang = "de"),
+    Channel("UCafNlR92d6W0e9ow_QHRx1w", "Rolf Zuckowski", lang = "de"),
+    Channel("UCv4Pvhg1LY8U9E-XF8hn6WA", "KiKAninchen", lang = "de"),
+) + ZH_CHANNELS
+
 
 const val DEFAULT_INSTANCE = "https://yt.chocolatemoo53.com"
 
@@ -92,14 +114,56 @@ class Invidious(private val base: () -> String) {
 
     /** The channel's most popular videos (the classics a toddler wants), without Shorts and live streams. */
     suspend fun popularVideos(channelId: String): List<Video> {
-        val json = JSONObject(get("/api/v1/channels/$channelId/videos?sort_by=popular"))
-        val list = json.optJSONArray("videos") ?: return emptyList()
-        return (0 until list.length()).map { list.getJSONObject(it) }
+        // tablet: up to 5 pages (300 songs) per channel, enough to fill the large memory card; projector: one page
+        val pages = if (BuildConfig.PAD) 5 else 1
+        val all = mutableListOf<JSONObject>()
+        var token: String? = null
+        for (page in 1..pages) {
+            val path = "/api/v1/channels/$channelId/videos?sort_by=popular" +
+                (token?.let { "&continuation=" + URLEncoder.encode(it, "UTF-8") } ?: "")
+            val json = try {
+                JSONObject(get(path))
+            } catch (e: Exception) {
+                if (page == 1) throw e else break // keep the pages we already have
+            }
+            val list = json.optJSONArray("videos") ?: break
+            all += (0 until list.length()).map { list.getJSONObject(it) }
+            token = json.optString("continuation").ifEmpty { null } ?: break
+            delay(1_500) // gently: the server blocks clients that ask too fast
+        }
+        return all.distinctBy { it.optString("videoId") }
             .filter {
                 !it.optBoolean("liveNow") && !it.optBoolean("isUpcoming") &&
                     !it.optBoolean("premium") && it.optInt("lengthSeconds") >= 45
             }
             .map { it.toVideo() }
+    }
+
+    /**
+     * Subtitles (WebVTT) of a video in the channel's language: hand-made ones first, auto-generated otherwise.
+     * Null when the video has none in that language.
+     */
+    suspend fun subtitle(videoId: String, lang: String): String? {
+        val json = JSONObject(get("/api/v1/captions/$videoId"))
+        val arr = json.optJSONArray("captions") ?: return null
+        val wanted = when (lang) {
+            "zh" -> listOf("zh-hans", "zh-cn", "zh", "zh-hant", "zh-tw", "zh-hk")
+            "de" -> listOf("de")
+            else -> listOf("en")
+        }
+        fun score(o: JSONObject): Int {
+            val code = o.optString("languageCode", o.optString("language_code")).lowercase()
+            val i = wanted.indexOfFirst { code == it || code.startsWith("$it-") }
+            if (i < 0) return -1
+            val label = o.optString("label")
+            val auto = label.contains("auto", ignoreCase = true) || label.contains("自动")
+            return (if (auto) 0 else 100) + (wanted.size - i)
+        }
+        val best = (0 until arr.length()).map { arr.getJSONObject(it) }
+            .filter { score(it) >= 0 }.maxByOrNull { score(it) } ?: return null
+        val url = best.optString("url").ifEmpty { return null }
+        val text = get(if (url.startsWith("/")) url else "/" + url.substringAfter("://").substringAfter("/"))
+        return text.takeIf { it.trimStart().startsWith("WEBVTT") }
     }
 
     suspend fun channelInfo(channelId: String): Channel {
@@ -170,7 +234,7 @@ fun Video.toJson(): JSONObject = JSONObject()
     .put("videoId", id).put("title", title).put("author", author)
     .put("authorId", authorId).put("lengthSeconds", seconds)
 
-fun Channel.toJson(): JSONObject = JSONObject().put("id", id).put("name", name).put("avatar", avatar)
+fun Channel.toJson(): JSONObject = JSONObject().put("id", id).put("name", name).put("avatar", avatar).put("lang", lang)
 
 /** Everything is kept on the projector itself: channels, favourites and a cache of each row. */
 class Store(context: Context) {
@@ -180,6 +244,15 @@ class Store(context: Context) {
     var instance: String
         get() = prefs.getString("instance", null) ?: DEFAULT_INSTANCE
         set(value) = prefs.edit().putString("instance", value.trim().trimEnd('/')).apply()
+
+    /** tablet: the language shown on the picker (zh / en / de) */
+    var padLang: String
+        get() = prefs.getString("padLang", null) ?: "zh"
+        set(value) = prefs.edit().putString("padLang", value).apply()
+
+    var subtitles: Boolean
+        get() = prefs.getBoolean("subtitles", true)
+        set(value) = prefs.edit().putBoolean("subtitles", value).apply()
 
     var autoPrecache: Boolean
         get() = prefs.getBoolean("autoPrecache", true)
@@ -192,8 +265,20 @@ class Store(context: Context) {
     fun channels(): List<Channel> {
         val raw = prefs.getString("channels", null) ?: return DEFAULT_CHANNELS
         val arr = JSONArray(raw)
-        return (0 until arr.length()).map { arr.getJSONObject(it) }
-            .map { Channel(it.getString("id"), it.optString("name"), it.optString("avatar")) }
+        val known = DEFAULT_CHANNELS.associateBy { it.id }
+        var list = (0 until arr.length()).map { arr.getJSONObject(it) }
+            .map {
+                val name = it.optString("name")
+                val lang = it.optString("lang").ifEmpty { known[it.getString("id")]?.lang ?: guessLang(name) }
+                Channel(it.getString("id"), name, it.optString("avatar"), lang)
+            }
+        // lists saved by older versions get the Chinese channels once
+        if (prefs.getInt("defaultsVersion", 1) < 2) {
+            list = list + ZH_CHANNELS.filter { zh -> list.none { it.id == zh.id } }
+            saveChannels(list)
+            prefs.edit().putInt("defaultsVersion", 2).apply()
+        }
+        return list
     }
 
     fun saveChannels(list: List<Channel>) {

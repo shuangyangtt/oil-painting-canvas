@@ -54,7 +54,8 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
     var toast by mutableStateOf<String?>(null)
     private var toastJob: Job? = null
 
-    private val loadLimit = Semaphore(3)
+    // tablet: one channel at a time (5 pages each), so the Invidious server never sees a burst of requests
+    private val loadLimit = Semaphore(if (BuildConfig.PAD) 1 else 3)
 
     fun showToast(text: String) {
         toast = text
@@ -137,9 +138,14 @@ class AppState(val store: Store, private val scope: CoroutineScope) {
 
     fun addChannel(channel: Channel) {
         if (hasChannel(channel.id)) return
-        channels = channels + channel
+        channels = channels + channel.copy(lang = channel.lang.ifEmpty { guessLang(channel.name) })
         store.saveChannels(channels)
         loadRow(channel)
+    }
+
+    fun setChannelLang(id: String, lang: String) {
+        channels = channels.map { if (it.id == id) it.copy(lang = lang) else it }
+        store.saveChannels(channels)
     }
 
     fun removeChannel(id: String) {

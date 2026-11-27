@@ -83,8 +83,8 @@ object Media {
         }
         val dir = File(base, "video-cache").apply { mkdirs() }
         val used = dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
-        // projector: 4 GB, leaving at least 1 GB free; tablet: 16 GB of songs for offline use, leaving 2 GB free
-        val max = if (BuildConfig.PAD) 16 * GB else 4 * GB
+        // projector: 4 GB, leaving at least 1 GB free; tablet: 128 GB of songs (memory card) for offline use, leaving 2 GB free
+        val max = if (BuildConfig.PAD) 128 * GB else 4 * GB
         val keepFree = if (BuildConfig.PAD) 2 * GB else GB
         cacheLimit = minOf(max, dir.usableSpace + used - keepFree).coerceAtLeast(256L * 1024 * 1024)
         return SimpleCache(dir, LeastRecentlyUsedCacheEvictor(cacheLimit), StandaloneDatabaseProvider(context.applicationContext))

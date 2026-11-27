@@ -28,18 +28,20 @@ A nursery-song player for Android TV and projectors, made for a toddler who pick
   <img src="docs/parent.png" width="360" alt="家长设置">
 </p>
 
-**默认频道**（可以在管理页随意增删）：Super Simple Songs、Pinkfong Baby Shark、Little Baby Bum、CoComelon、Mother Goose Club、Bounce Patrol、Dave and Ava、Hey Bear Sensory；Sing mit mir、Kinderlieder zum Mitsingen und Bewegen、Hurra Kinderlieder、CoComelon Deutsch、Pinkfong Baby Hai、Little Baby Bum Deutsch、Lichterkinder、Volker Rosin、Rolf Zuckowski、KiKAninchen。
+**默认频道**（可以在管理页随意增删）：宝宝巴士、碰碰狐 Pinkfong 中文、Bebefinn 简体中文、贝乐虎儿歌、CoComelon 中文版、儿歌多多、小宝贝布姆、小伊普童谣；Super Simple Songs、Pinkfong Baby Shark、Little Baby Bum、CoComelon、Mother Goose Club、Bounce Patrol、Dave and Ava、Hey Bear Sensory；Sing mit mir、Kinderlieder zum Mitsingen und Bewegen、Hurra Kinderlieder、CoComelon Deutsch、Pinkfong Baby Hai、Little Baby Bum Deutsch、Lichterkinder、Volker Rosin、Rolf Zuckowski、KiKAninchen。
 
 ## 平板版
 
 给安卓平板用的版本（触屏，和投影仪版可以同时装）。它会**自动把儿歌下载到平板上**，宝宝只看存好的歌，不用网也能立刻播放。
 
 - 存在内存卡上（插了卡的话），没有卡就存在平板内部
-- 自动下载：打开就开始，先「最喜欢」，再每个频道轮流（最受欢迎的先存），每首 720p，最多 16 GB，存满就停
+- 自动下载：打开就开始，先「最喜欢」，再每个频道轮流（最受欢迎的先存），每首 720p，最多 128 GB（内存卡），存满就停；每个频道取最受欢迎的前 300 首
 - 快速下载：同时下 32 首（最多 64 条连接，每个请求单独连接），每个文件分成 4 MB 小段下载（不容易被限速），卡住的连接 15 秒后自动重连；家长设置里能看到实时速度
 - 只用家里的 WiFi 下载：连手机热点或流量时不下载，不会用流量；带出去只放存好的歌
 - 夜间下载：华为平板关屏几分钟后会冻结应用。所以插着电、开着油图布、还没下完时屏幕保持亮着，1 分钟没人碰就变成全黑、最低亮度的下载画面
 - 每 6 小时自动看看频道有没有新歌，有就接着下
+- 中文 / English / Deutsch 三个分类，顶部大按钮切换（默认中文）；内置 8 个官方中文儿歌频道：宝宝巴士、碰碰狐、Bebefinn、贝乐虎、CoComelon 中文版、儿歌多多、小宝贝布姆、小伊普童谣
+- 字幕：跟着歌一起下载（频道语言，人工字幕优先），播放时点「字」开关
 - 宝宝界面：一排排大封面，只显示已经存好的歌；点一下全屏播放，播完自动放下一首
 - 播放时点屏幕：大的返回、上一首、暂停、下一首、❤ 最喜欢；进度条只能看不能拖，避免乱跳
 - 家长设置：按住右上角小锁 2 秒。能看下载进度和占用空间、开关自动下载、刷新歌单、清空下载、添加或删除频道

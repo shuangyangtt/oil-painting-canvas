@@ -107,10 +107,25 @@ object Offline {
             gone.forEach { id ->
                 entries.remove(id)
                 File(dir(context), "$id.mpd").delete()
+                File(dir(context), "$id.vtt").delete()
+                File(dir(context), "$id.nosub").delete()
             }
             save(context)
         }
         return entries.values.map { it.video }.reversed()
+    }
+
+    /** The song's stored subtitles, if it has any. */
+    fun subtitleFile(context: Context, videoId: String): File? =
+        File(dir(context), "$videoId.vtt").takeIf { it.exists() }
+
+    /** Whether subtitles were already looked for (found or not), so each song is asked about once. */
+    fun subtitleTried(context: Context, videoId: String): Boolean =
+        File(dir(context), "$videoId.vtt").exists() || File(dir(context), "$videoId.nosub").exists()
+
+    fun saveSubtitle(context: Context, videoId: String, vtt: String?) {
+        if (vtt != null) File(dir(context), "$videoId.vtt").writeText(vtt)
+        else File(dir(context), "$videoId.nosub").writeText("")
     }
 
     @Synchronized
@@ -203,6 +218,26 @@ class Precacher(private val context: Context, private val state: AppState, priva
                     delay(60_000)
                 }
             }
+            // tablet: subtitles for songs stored before (or whose subtitles could not be fetched then)
+            if (BuildConfig.PAD) launch {
+                delay(20_000)
+                while (isActive) {
+                    val todo = if (holdUntil > System.currentTimeMillis() || !Net.unmetered(context) || !state.store.autoPrecache) null
+                    else Offline.videos(context).firstOrNull { !Offline.subtitleTried(context, it.id) }
+                    if (todo == null) {
+                        delay(60_000)
+                        continue
+                    }
+                    try {
+                        fetchSubtitle(todo)
+                    } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        if (serverBusy(e)) holdFor(e)
+                        else Offline.saveSubtitle(context, todo.id, null)
+                        delay(10_000)
+                    }
+                }
+            }
             repeat(workers) { w ->
                 launch {
                     delay(w * if (BuildConfig.PAD) 300L else 1_500L)
@@ -286,13 +321,7 @@ class Precacher(private val context: Context, private val state: AppState, priva
             if (e is kotlinx.coroutines.CancellationException) throw e
             // the server is overloaded or blocks us for a while: everybody waits (1 min, then longer), the song is fine
             if (serverBusy(e)) {
-                synchronized(lock) {
-                    if (System.currentTimeMillis() >= holdUntil) {
-                        holdUntil = System.currentTimeMillis() + holdStep
-                        Media.log("服务器忙（${e.message?.take(60)}），全部暂停 ${holdStep / 60_000} 分钟")
-                        holdStep = minOf(holdStep * 2, 30 * 60_000L)
-                    }
-                }
+                holdFor(e)
                 return 5_000
             }
             // a song is only given up after 3 failures (a short network hiccup must not rule it out)
@@ -387,6 +416,14 @@ class Precacher(private val context: Context, private val state: AppState, priva
             videoRep.setTag + "\n" + videoRep.xml + "\n</AdaptationSet>\n" +
             audioRep.setTag + "\n" + audioRep.xml + "\n</AdaptationSet>\n</Period>\n</MPD>\n"
         Offline.add(context, video, manifest, keys)
+        if (BuildConfig.PAD) {
+            try {
+                fetchSubtitle(video)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (serverBusy(e)) holdFor(e) // the song is stored; its subtitles come later
+            }
+        }
         // the cover picture too, so the offline page looks right without internet
         SingletonImageLoader.get(context).enqueue(ImageRequest.Builder(context).data(video.thumbnail).build())
         Media.log("离线存好「${video.title.take(24)}」${videoRep.height}p，${formatSize(keys.sumOf { it.second })}")
@@ -394,13 +431,35 @@ class Precacher(private val context: Context, private val state: AppState, priva
         withContext(Dispatchers.Main) { state.offlineVideos = list }
     }
 
-    private suspend fun manifestText(videoId: String): String = manifestGate.withPermit {
+    /** Every request to the main Invidious server goes through here: one at a time, with a gap. */
+    private suspend fun <T> gated(block: suspend () -> T): T = manifestGate.withPermit {
         val wait = lastManifest + MANIFEST_GAP_MS - System.currentTimeMillis()
         if (wait > 0) delay(wait)
         try {
-            Media.fetchManifestText(state.api, videoId)
+            block()
         } finally {
             lastManifest = System.currentTimeMillis()
+        }
+    }
+
+    private suspend fun manifestText(videoId: String): String = gated { Media.fetchManifestText(state.api, videoId) }
+
+    /** Fetches and stores the song's subtitles (in its channel's language), once per song. */
+    private suspend fun fetchSubtitle(video: Video) {
+        if (Offline.subtitleTried(context, video.id)) return
+        val lang = state.channels.firstOrNull { it.id == video.authorId }?.lang ?: guessLang(video.author)
+        val vtt = gated { state.api.subtitle(video.id, lang) }
+        Offline.saveSubtitle(context, video.id, vtt)
+    }
+
+    /** Server overloaded or blocking us: every worker waits (1 minute, then longer each time). */
+    private fun holdFor(e: Exception) {
+        synchronized(lock) {
+            if (System.currentTimeMillis() >= holdUntil) {
+                holdUntil = System.currentTimeMillis() + holdStep
+                Media.log("服务器忙（${e.message?.take(60)}），全部暂停 ${holdStep / 60_000} 分钟")
+                holdStep = minOf(holdStep * 2, 30 * 60_000L)
+            }
         }
     }
 

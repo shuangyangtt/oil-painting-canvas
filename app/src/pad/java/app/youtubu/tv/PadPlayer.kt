@@ -1,5 +1,6 @@
 package app.youtubu.tv
 
+import android.net.Uri
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
@@ -57,6 +58,9 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.dash.DefaultDashChunkSource
+import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.source.SingleSampleMediaSource
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
@@ -78,6 +82,8 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
     var overlayUntil by remember { mutableLongStateOf(System.currentTimeMillis() + OVERLAY_MS) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var skips by remember { mutableIntStateOf(0) }
+    var subtitles by remember { mutableStateOf(state.store.subtitles) }
+    var hasSubtitle by remember { mutableStateOf(false) }
 
     val player = remember { ExoPlayer.Builder(context).build().apply { playWhenReady = true } }
 
@@ -109,9 +115,22 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
             return@LaunchedEffect
         }
         skips = 0
-        val source = DashMediaSource.Factory(
+        val dash = DashMediaSource.Factory(
             DefaultDashChunkSource.Factory(Media.dataSource(context)), DefaultDataSource.Factory(context),
         ).createMediaSource(MediaItem.Builder().setUri(manifest).setMimeType(MimeTypes.APPLICATION_MPD).build())
+        // stored subtitles play along (shown or hidden with the 字 button)
+        val sub = Offline.subtitleFile(context, video.id)
+        hasSubtitle = sub != null
+        val source = if (sub == null) dash else MergingMediaSource(
+            dash,
+            SingleSampleMediaSource.Factory(DefaultDataSource.Factory(context)).createMediaSource(
+                MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(sub))
+                    .setMimeType(MimeTypes.TEXT_VTT)
+                    .setSelectionFlags(MediaC.SELECTION_FLAG_DEFAULT)
+                    .build(),
+                MediaC.TIME_UNSET,
+            ),
+        )
         player.setMediaSource(source)
         player.prepare()
         player.play()
@@ -141,6 +160,12 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
         }
     }
 
+    LaunchedEffect(subtitles) {
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(MediaC.TRACK_TYPE_TEXT, !subtitles)
+            .build()
+    }
+
     LaunchedEffect(Unit) {
         while (true) {
             now = System.currentTimeMillis()
@@ -167,6 +192,18 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
                     useController = false
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     keepScreenOn = true
+                    // big, easy to read subtitles on a dark band
+                    subtitleView?.apply {
+                        setApplyEmbeddedStyles(false)
+                        setApplyEmbeddedFontSizes(false)
+                        setFractionalTextSize(0.065f)
+                        setStyle(
+                            CaptionStyleCompat(
+                                android.graphics.Color.WHITE, 0xAA000000.toInt(), android.graphics.Color.TRANSPARENT,
+                                CaptionStyleCompat.EDGE_TYPE_NONE, android.graphics.Color.WHITE, null,
+                            ),
+                        )
+                    }
                     layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                     this.player = player
                 }
@@ -189,6 +226,16 @@ fun PadPlayer(state: AppState, screen: Screen.Player) {
                     Spacer(Modifier.width(20.dp))
                     T(video.title, Modifier.weight(1f), size = 22.sp, weight = FontWeight.Bold, maxLines = 2)
                     Spacer(Modifier.width(20.dp))
+                    // subtitles on / off (remembered)
+                    RoundButton(80.dp, if (subtitles) C.yellow else Color(0x55FFFFFF), {
+                        subtitles = !subtitles
+                        state.store.subtitles = subtitles
+                        state.showToast(
+                            if (!subtitles) "字幕已关闭" else if (hasSubtitle) "字幕已打开" else "字幕已打开（这首歌没有字幕）",
+                        )
+                        showOverlay()
+                    }) { T("字", size = 34.sp, color = if (subtitles) C.bg else Color.White, weight = FontWeight.Black) }
+                    Spacer(Modifier.width(16.dp))
                     val fav = state.isFavorite(video)
                     RoundButton(80.dp, if (fav) C.pink else Color(0x55FFFFFF), {
                         state.toggleFavorite(video)

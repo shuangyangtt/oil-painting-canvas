@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,8 +70,10 @@ fun PadApp(state: AppState) {
 
 private class PadRow(val key: String, val title: String, val avatar: String?, val videos: List<Video>)
 
+val LANGS = listOf("zh" to "中文", "en" to "English", "de" to "Deutsch")
+
 /** Only the songs stored on the tablet, so everything plays at once and without internet. */
-private fun padRows(state: AppState): List<PadRow> {
+private fun padRows(state: AppState, lang: String): List<PadRow> {
     val stored = state.offlineVideos
     val byId = stored.associateBy { it.id }
     val rows = mutableListOf<PadRow>()
@@ -78,6 +81,10 @@ private fun padRows(state: AppState): List<PadRow> {
     if (favs.isNotEmpty()) rows += PadRow(FAVORITES_KEY, "最喜欢", null, favs)
     val used = mutableSetOf<String>()
     for (ch in state.channels) {
+        if (ch.lang != lang) {
+            used += stored.filter { it.authorId == ch.id }.map { it.id }
+            continue
+        }
         val mine = stored.filter { it.authorId == ch.id }
         if (mine.isEmpty()) continue
         // same order as the channel's list (most popular first)
@@ -94,7 +101,8 @@ private fun padRows(state: AppState): List<PadRow> {
 fun PadHome(state: AppState) {
     // the home screen never leaves the app with the back gesture (a toddler swipes a lot)
     BackHandler { }
-    val rows = padRows(state)
+    var lang by remember { mutableStateOf(state.store.padLang) }
+    val rows = padRows(state, lang)
 
     Column(
         Modifier
@@ -106,8 +114,23 @@ fun PadHome(state: AppState) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             T("油图布儿歌", size = 30.sp, color = C.yellow, weight = FontWeight.Black)
-            Spacer(Modifier.width(18.dp))
-            T("${state.offlineVideos.size} 首", size = 18.sp, color = C.faint)
+            Spacer(Modifier.weight(1f))
+            // one language at a time: big buttons a toddler can hit
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                for ((code, label) in LANGS) {
+                    val on = code == lang
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(30.dp))
+                            .background(if (on) C.yellow else Color(0x26FFFFFF))
+                            .clickable {
+                                lang = code
+                                state.store.padLang = code
+                            }
+                            .padding(horizontal = 30.dp, vertical = 12.dp),
+                    ) { T(label, size = 24.sp, color = if (on) C.bg else C.text, weight = FontWeight.Bold) }
+                }
+            }
             Spacer(Modifier.weight(1f))
             ParentLock { state.screen = Screen.Parent }
         }
@@ -116,7 +139,7 @@ fun PadHome(state: AppState) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     T("🎵", size = 80.sp)
                     Spacer(Modifier.height(12.dp))
-                    T("正在下载儿歌，马上就好", size = 28.sp, weight = FontWeight.Bold)
+                    T(if (state.offlineVideos.isEmpty()) "正在下载儿歌，马上就好" else "这里的儿歌还在下载，先听听别的吧", size = 28.sp, weight = FontWeight.Bold)
                     Spacer(Modifier.height(10.dp))
                     T(state.precacher.status, size = 18.sp, color = C.dim, align = TextAlign.Center)
                 }

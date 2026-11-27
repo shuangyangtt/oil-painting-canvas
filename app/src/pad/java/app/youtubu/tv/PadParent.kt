@@ -102,11 +102,20 @@ fun PadParent(state: AppState) {
                     T("现在：" + state.precacher.status, size = 16.sp, color = C.dim)
                     Spacer(Modifier.height(6.dp))
                     T(
-                        "顺序：先「最喜欢」，再每个频道轮流（最受欢迎的先存）。每首 720p，同时下 32 首。只用家里的 WiFi 下载（手机热点不下载，不会用流量）。存满 16 GB 就停止下载，带出去只放存好的歌，不需要网络。" +
+                        "顺序：先「最喜欢」，再每个频道轮流（最受欢迎的先存）。每首 720p，同时下 32 首。只用家里的 WiFi 下载（手机热点不下载，不会用流量）。存满 128 GB 就停止下载，带出去只放存好的歌，不需要网络。" +
                             "华为平板关屏几分钟后会冻结应用、停止下载，所以：插着电、开着油图布时屏幕会保持亮着，1 分钟没人碰就变成黑色的「夜间下载」画面。睡前插上电、打开油图布放着就行。",
                         size = 14.sp, color = C.faint,
                     )
                     Spacer(Modifier.height(14.dp))
+                    var subs by remember { mutableStateOf(state.store.subtitles) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        T("播放时显示字幕（字幕会跟着歌一起下载）", Modifier.weight(1f), size = 18.sp)
+                        Switch(subs) {
+                            subs = it
+                            state.store.subtitles = it
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         T("自动下载", Modifier.weight(1f), size = 18.sp)
                         Switch(auto) {
@@ -143,7 +152,7 @@ fun PadParent(state: AppState) {
                 Card {
                     T("频道（${state.channels.size} 个）", size = 20.sp, weight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
-                    T("只下载这些频道的歌。删掉的频道，已经存好的歌会放在「更多儿歌」里。", size = 14.sp, color = C.faint)
+                    T("只下载这些频道的歌。点「中文 / English / Deutsch」可以改频道放在哪个分类里。删掉的频道，已经存好的歌会放在「更多儿歌」里。", size = 14.sp, color = C.faint)
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         BasicTextField(
@@ -192,6 +201,13 @@ fun PadParent(state: AppState) {
                                 T(ch.name, size = 18.sp, maxLines = 1)
                                 T("已存 ${counts[ch.id] ?: 0} 首", size = 14.sp, color = C.faint)
                             }
+                            // language of the channel (which tab it shows up in); tap to change
+                            val langLabel = LANGS.firstOrNull { it.first == ch.lang }?.second ?: "?"
+                            Btn(langLabel, C.card, C.yellow) {
+                                val i = LANGS.indexOfFirst { it.first == ch.lang }
+                                state.setChannelLang(ch.id, LANGS[(i + 1).mod(LANGS.size)].first)
+                            }
+                            Spacer(Modifier.width(10.dp))
                             val sure = confirmRemove == ch.id
                             Btn(if (sure) "确定删除" else "删除", if (sure) C.pink else C.card, C.text) {
                                 if (!sure) {
